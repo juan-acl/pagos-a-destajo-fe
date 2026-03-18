@@ -4,15 +4,15 @@ import api from "@/api";
 
 type MiembroCuadrilla = {
     id: number;
-    empEmpleadoId: number;
-    cuaCuadrillaId: number;
+    empleadoId: number;
+    cuadrillaId: number;
     fechaIngreso?: string | null;
     estado: string;
 };
 
 type MiembroForm = Omit<MiembroCuadrilla, "id">;
 
-const empty: MiembroForm = { empEmpleadoId: 0, cuaCuadrillaId: 0, fechaIngreso: "", estado: "ACTIVO" };
+const empty: MiembroForm = { empleadoId: 0, cuadrillaId: 0, fechaIngreso: "", estado: "ACTIVO" };
 
 const fetcher = () => api.get<{ data: MiembroCuadrilla[] }>("/miembros-cuadrilla").then(r => r.data.data);
 
@@ -30,7 +30,7 @@ export default function MiembroCuadrilla() {
     const remove = useMutation({ mutationFn: (id: number) => api.delete(`/miembros-cuadrilla/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }) });
 
     const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
-    const edit = (m: MiembroCuadrilla) => { setForm({ empEmpleadoId: m.empEmpleadoId, cuaCuadrillaId: m.cuaCuadrillaId, fechaIngreso: m.fechaIngreso ?? "", estado: m.estado }); setEditId(m.id); setOpen(true); };
+    const edit = (m: MiembroCuadrilla) => { setForm({ empleadoId: m.empleadoId, cuadrillaId: m.cuadrillaId, fechaIngreso: m.fechaIngreso ?? "", estado: m.estado }); setEditId(m.id); setOpen(true); };
     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
 
@@ -48,11 +48,11 @@ export default function MiembroCuadrilla() {
                         <div style={s.grid}>
                             <label style={s.label}>
                                 ID Empleado *
-                                <input name="empEmpleadoId" type="number" value={form.empEmpleadoId || ""} onChange={change} required style={s.input} />
+                                <input name="empleadoId" type="number" value={form.empleadoId || ""} onChange={change} required style={s.input} />
                             </label>
                             <label style={s.label}>
                                 ID Cuadrilla *
-                                <input name="cuaCuadrillaId" type="number" value={form.cuaCuadrillaId || ""} onChange={change} required style={s.input} />
+                                <input name="cuadrillaId" type="number" value={form.cuadrillaId || ""} onChange={change} required style={s.input} />
                             </label>
                             <label style={s.label}>
                                 Fecha de ingreso
@@ -83,8 +83,8 @@ export default function MiembroCuadrilla() {
                         <tbody>
                             {data.map(m => (
                                 <tr key={m.id} style={s.tr}>
-                                    <td style={s.td}>{m.empEmpleadoId}</td>
-                                    <td style={s.td}>{m.cuaCuadrillaId}</td>
+                                    <td style={s.td}>{m.empleadoId}</td>
+                                    <td style={s.td}>{m.cuadrillaId}</td>
                                     <td style={s.td}>{m.fechaIngreso ?? "-"}</td>
                                     <td style={s.td}><span style={m.estado === "ACTIVO" ? s.activo : s.inactivo}>{m.estado}</span></td>
                                     <td style={s.td}>

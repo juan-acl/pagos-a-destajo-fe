@@ -5,7 +5,9 @@ import api from "@/api";
 type Empleado = {
     id: number;
     primerNombre: string;
+    segundoNombre?: string | null;
     primerApellido: string;
+    segundoApellido?: string | null;
     email: string;
     codigoEmpleado?: string | null;
     estado: string;
@@ -13,7 +15,16 @@ type Empleado = {
 
 type EmpleadoForm = Omit<Empleado, "id"> & { password: string };
 
-const empty: EmpleadoForm = { primerNombre: "", primerApellido: "", email: "", password: "", codigoEmpleado: "", estado: "ACTIVO" };
+const empty: EmpleadoForm = {
+    primerNombre: "",
+    segundoNombre: "",
+    primerApellido: "",
+    segundoApellido: "",
+    email: "",
+    password: "",
+    codigoEmpleado: "",
+    estado: "ACTIVO",
+};
 
 const fetcher = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
 
@@ -31,7 +42,20 @@ export default function Empleado() {
     const remove = useMutation({ mutationFn: (id: number) => api.delete(`/empleados/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["empleados"] }) });
 
     const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
-    const edit = (e: Empleado) => { setForm({ ...e, password: "" }); setEditId(e.id); setOpen(true); };
+    const edit = (e: Empleado) => {
+        setForm({
+            primerNombre: e.primerNombre,
+            segundoNombre: e.segundoNombre ?? "",
+            primerApellido: e.primerApellido,
+            segundoApellido: e.segundoApellido ?? "",
+            email: e.email,
+            password: "",
+            codigoEmpleado: e.codigoEmpleado ?? "",
+            estado: e.estado,
+        });
+        setEditId(e.id);
+        setOpen(true);
+    };
     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
 
@@ -47,15 +71,33 @@ export default function Empleado() {
                     <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} empleado</h2>
                     <form onSubmit={submit}>
                         <div style={s.grid}>
-                            {(["primerNombre", "primerApellido", "email", "codigoEmpleado"] as const).map(f => (
-                                <label key={f} style={s.label}>
-                                    {labels[f]}
-                                    <input name={f} value={form[f] ?? ""} onChange={change} required={required.includes(f)} style={s.input} />
-                                </label>
-                            ))}
+                            <label style={s.label}>
+                                Primer nombre *
+                                <input name="primerNombre" value={form.primerNombre} onChange={change} required style={s.input} />
+                            </label>
+                            <label style={s.label}>
+                                Segundo nombre
+                                <input name="segundoNombre" value={form.segundoNombre ?? ""} onChange={change} style={s.input} />
+                            </label>
+                            <label style={s.label}>
+                                Primer apellido *
+                                <input name="primerApellido" value={form.primerApellido} onChange={change} required style={s.input} />
+                            </label>
+                            <label style={s.label}>
+                                Segundo apellido
+                                <input name="segundoApellido" value={form.segundoApellido ?? ""} onChange={change} style={s.input} />
+                            </label>
+                            <label style={s.label}>
+                                Email *
+                                <input name="email" type="email" value={form.email} onChange={change} required style={s.input} />
+                            </label>
                             <label style={s.label}>
                                 {editId ? "Nueva contraseña (opcional)" : "Contraseña *"}
                                 <input name="password" type="password" value={form.password} onChange={change} required={!editId} style={s.input} />
+                            </label>
+                            <label style={s.label}>
+                                Código empleado
+                                <input name="codigoEmpleado" value={form.codigoEmpleado ?? ""} onChange={change} style={s.input} />
                             </label>
                             <label style={s.label}>
                                 Estado
@@ -77,13 +119,13 @@ export default function Empleado() {
                 {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
                     <table style={s.table}>
                         <thead><tr style={s.thead}>
-                            {["Código", "Nombre", "Email", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
+                            {["Código", "Nombre completo", "Email", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                             {data.map(e => (
                                 <tr key={e.id} style={s.tr}>
                                     <td style={s.td}>{e.codigoEmpleado ?? "-"}</td>
-                                    <td style={s.td}>{e.primerNombre} {e.primerApellido}</td>
+                                    <td style={s.td}>{e.primerNombre} {e.segundoNombre ?? ""} {e.primerApellido} {e.segundoApellido ?? ""}</td>
                                     <td style={s.td}>{e.email}</td>
                                     <td style={s.td}><span style={e.estado === "ACTIVO" ? s.activo : s.inactivo}>{e.estado}</span></td>
                                     <td style={s.td}>
@@ -99,9 +141,6 @@ export default function Empleado() {
         </div>
     );
 }
-
-const labels: Record<string, string> = { primerNombre: "Primer nombre *", primerApellido: "Primer apellido *", email: "Email *", codigoEmpleado: "Código empleado" };
-const required = ["primerNombre", "primerApellido", "email"];
 
 const s: Record<string, React.CSSProperties> = {
     page: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },

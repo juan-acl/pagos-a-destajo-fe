@@ -6,13 +6,13 @@ type Cuadrilla = {
     id: number;
     nombre: string;
     codigoCuadrilla?: string | null;
-    areArea?: number | null;
+    areaId?: number | null;
     estado: string;
 };
 
 type CuadrillaForm = Omit<Cuadrilla, "id">;
 
-const empty: CuadrillaForm = { nombre: "", codigoCuadrilla: "", areArea: null, estado: "ACTIVO" };
+const empty: CuadrillaForm = { nombre: "", codigoCuadrilla: "", areaId: null, estado: "ACTIVO" };
 
 const fetcher = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 
@@ -30,7 +30,7 @@ export default function Cuadrilla() {
     const remove = useMutation({ mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["cuadrillas"] }) });
 
     const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
-    const edit = (c: Cuadrilla) => { setForm({ nombre: c.nombre, codigoCuadrilla: c.codigoCuadrilla, areArea: c.areArea, estado: c.estado }); setEditId(c.id); setOpen(true); };
+    const edit = (c: Cuadrilla) => { setForm({ nombre: c.nombre, codigoCuadrilla: c.codigoCuadrilla, areaId: c.areaId, estado: c.estado }); setEditId(c.id); setOpen(true); };
     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
 
@@ -56,7 +56,7 @@ export default function Cuadrilla() {
                             </label>
                             <label style={s.label}>
                                 ID Área
-                                <input name="areArea" type="number" value={form.areArea ?? ""} onChange={change} style={s.input} />
+                                <input name="areaId" type="number" value={form.areaId ?? ""} onChange={change} style={s.input} />
                             </label>
                             <label style={s.label}>
                                 Estado
@@ -85,7 +85,7 @@ export default function Cuadrilla() {
                                 <tr key={c.id} style={s.tr}>
                                     <td style={s.td}>{c.codigoCuadrilla ?? "-"}</td>
                                     <td style={s.td}>{c.nombre}</td>
-                                    <td style={s.td}>{c.areArea ?? "-"}</td>
+                                    <td style={s.td}>{c.areaId ?? "-"}</td>
                                     <td style={s.td}><span style={c.estado === "ACTIVO" ? s.activo : s.inactivo}>{c.estado}</span></td>
                                     <td style={s.td}>
                                         <button style={s.btnEdit} onClick={() => edit(c)}>Editar</button>
