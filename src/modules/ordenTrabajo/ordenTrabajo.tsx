@@ -14,7 +14,7 @@ type OrdenTrabajo = {
     cantidadRequerida: number;
     medidaId?: number | null;
     pagoUnitario: number;
-    fechaLimite?: string | null;
+    fechaLimite?: string;
     estado: string;
 };
 
