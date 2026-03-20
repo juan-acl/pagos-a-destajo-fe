@@ -12,6 +12,9 @@ const AsignacionOrdenCuadrilla = lazy(() => import("@/modules/asignacionOrdenCua
 const EmployeeAssignment = lazy(() => import("@/modules/employeeAssignment/employeeAssignment"));
 const ProductionReview = lazy(() => import("@/modules/productionReview/productionReview"));
 const ProductionLot = lazy(() => import("@/modules/productionLot/productionLot"));
+const Area = lazy(() => import("@/modules/area/area"));
+const Planilla = lazy(() => import("@/modules/planilla/planilla"));
+const Puesto = lazy(() => import("@/modules/puesto/puesto"));
 
 export default function Router() {
   return (
@@ -30,6 +33,9 @@ export default function Router() {
             <Route path="/employee-assignment" element={<EmployeeAssignment />} />
             <Route path="/production-review" element={<ProductionReview />} />
             <Route path="/production-lot" element={<ProductionLot />} />
+            <Route path="/areas" element={<Area />} />
+            <Route path="/planillas" element={<Planilla />} />
+            <Route path="/puestos" element={<Puesto />} />
           </Routes>
         </Suspense>
       </AppShell>
