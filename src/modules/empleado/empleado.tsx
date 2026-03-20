@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
+import AppShell from "@/components/layout/AppShell";
 
 type Empleado = {
     id: number;
@@ -60,6 +61,7 @@ export default function Empleado() {
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
 
     return (
+        <AppShell>
         <div style={s.page}>
             <div style={s.header}>
                 <h1 style={s.title}>Empleados</h1>
@@ -139,6 +141,7 @@ export default function Empleado() {
                 )}
             </div>
         </div>
+        </AppShell>
     );
 }
 
