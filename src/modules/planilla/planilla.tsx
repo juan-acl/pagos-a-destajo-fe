@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
 import DataTable from "@/components/commons/DataTable";
+import AppShell from "@/components/layout/AppShell";
 
 type LoteProduccion = {
   id: number;
@@ -190,126 +191,128 @@ export default function Planilla() {
   ];
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
-        <h1 style={s.title}>Planillas</h1>
-        <button
-          style={s.btnPrimary}
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-        >
-          + Nuevo
-        </button>
-      </div>
-
-      {open && (
-        <div style={s.card}>
-          <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} planilla</h2>
-          <form onSubmit={submit}>
-            <div style={s.grid}>
-              <label style={s.label}>
-                Lote de producción *
-                <select
-                  name="loteProduccionId"
-                  value={form.loteProduccionId}
-                  onChange={change}
-                  required
-                  style={s.input}
-                >
-                  <option value={0} defaultChecked>
-                    Seleccionar lote...
-                  </option>
-                  {dataLotes.map((lote) => (
-                    <option key={lote.id} value={lote.id}>
-                      Revisión#{lote.revisionProduccionId} -{" "}
-                      {lote.totalPiezasAprobadas} piezas aprobadas
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label style={s.label}>
-                Número de pago *
-                <input
-                  name="numeroPago"
-                  type="number"
-                  min={1}
-                  value={form.numeroPago}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Monto total *
-                <input
-                  name="montoTotal"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.montoTotal}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Método de pago *
-                <select
-                  name="metodoPago"
-                  value={form.metodoPago}
-                  onChange={change}
-                  required
-                  style={s.input}
-                >
-                  <option value="EFECTIVO">EFECTIVO</option>
-                  <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-                  <option value="CHEQUE">CHEQUE</option>
-                </select>
-              </label>
-              <label style={s.label}>
-                Estado
-                <select
-                  name="estado"
-                  value={form.estado}
-                  onChange={change}
-                  style={s.input}
-                >
-                  <option value="PAGADO" defaultChecked>
-                    PAGADO
-                  </option>
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                </select>
-              </label>
-              <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                Descripción
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion ?? ""}
-                  onChange={change}
-                  rows={3}
-                  style={{ ...s.input, resize: "vertical" }}
-                />
-              </label>
-            </div>
-            <div style={s.row}>
-              <button type="submit" style={s.btnPrimary}>
-                Guardar
-              </button>
-              <button type="button" style={s.btnSecondary} onClick={reset}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+    <AppShell>
+      <div style={s.page}>
+        <div style={s.header}>
+          <h1 style={s.title}>Planillas</h1>
+          <button
+            style={s.btnPrimary}
+            onClick={() => {
+              reset();
+              setOpen(true);
+            }}
+          >
+            + Nuevo
+          </button>
         </div>
-      )}
 
-      <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        {open && (
+          <div style={s.card}>
+            <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} planilla</h2>
+            <form onSubmit={submit}>
+              <div style={s.grid}>
+                <label style={s.label}>
+                  Lote de producción *
+                  <select
+                    name="loteProduccionId"
+                    value={form.loteProduccionId}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  >
+                    <option value={0} defaultChecked>
+                      Seleccionar lote...
+                    </option>
+                    {dataLotes.map((lote) => (
+                      <option key={lote.id} value={lote.id}>
+                        Revisión#{lote.revisionProduccionId} -{" "}
+                        {lote.totalPiezasAprobadas} piezas aprobadas
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={s.label}>
+                  Número de pago *
+                  <input
+                    name="numeroPago"
+                    type="number"
+                    min={1}
+                    value={form.numeroPago}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
+                </label>
+                <label style={s.label}>
+                  Monto total *
+                  <input
+                    name="montoTotal"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.montoTotal}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
+                </label>
+                <label style={s.label}>
+                  Método de pago *
+                  <select
+                    name="metodoPago"
+                    value={form.metodoPago}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  >
+                    <option value="EFECTIVO">EFECTIVO</option>
+                    <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+                    <option value="CHEQUE">CHEQUE</option>
+                  </select>
+                </label>
+                <label style={s.label}>
+                  Estado
+                  <select
+                    name="estado"
+                    value={form.estado}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    <option value="PAGADO" defaultChecked>
+                      PAGADO
+                    </option>
+                    <option value="ACTIVO">ACTIVO</option>
+                    <option value="INACTIVO">INACTIVO</option>
+                  </select>
+                </label>
+                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
+                  Descripción
+                  <textarea
+                    name="descripcion"
+                    value={form.descripcion ?? ""}
+                    onChange={change}
+                    rows={3}
+                    style={{ ...s.input, resize: "vertical" }}
+                  />
+                </label>
+              </div>
+              <div style={s.row}>
+                <button type="submit" style={s.btnPrimary}>
+                  Guardar
+                </button>
+                <button type="button" style={s.btnSecondary} onClick={reset}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div style={s.card}>
+          <DataTable columns={columns} data={data} isLoading={isLoading} />
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

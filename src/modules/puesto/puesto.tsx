@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
 import DataTable from "@/components/commons/DataTable";
+import AppShell from "@/components/layout/AppShell";
 
 type Puesto = {
   id: number;
@@ -116,74 +117,76 @@ export default function Puesto() {
   ];
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
-        <h1 style={s.title}>Puestos</h1>
-        <button
-          style={s.btnPrimary}
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-        >
-          + Nuevo
-        </button>
-      </div>
-
-      {open && (
-        <div style={s.card}>
-          <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} puesto</h2>
-          <form onSubmit={submit}>
-            <div style={s.grid}>
-              <label style={s.label}>
-                Nombre *
-                <input
-                  name="nombre"
-                  value={form.nombre}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Estado
-                <select
-                  name="estado"
-                  value={form.estado}
-                  onChange={change}
-                  style={s.input}
-                >
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                </select>
-              </label>
-              <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                Descripción
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion ?? ""}
-                  onChange={change}
-                  rows={3}
-                  style={{ ...s.input, resize: "vertical" }}
-                />
-              </label>
-            </div>
-            <div style={s.row}>
-              <button type="submit" style={s.btnPrimary}>
-                Guardar
-              </button>
-              <button type="button" style={s.btnSecondary} onClick={reset}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+    <AppShell>
+      <div style={s.page}>
+        <div style={s.header}>
+          <h1 style={s.title}>Puestos</h1>
+          <button
+            style={s.btnPrimary}
+            onClick={() => {
+              reset();
+              setOpen(true);
+            }}
+          >
+            + Nuevo
+          </button>
         </div>
-      )}
 
-      <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        {open && (
+          <div style={s.card}>
+            <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} puesto</h2>
+            <form onSubmit={submit}>
+              <div style={s.grid}>
+                <label style={s.label}>
+                  Nombre *
+                  <input
+                    name="nombre"
+                    value={form.nombre}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
+                </label>
+                <label style={s.label}>
+                  Estado
+                  <select
+                    name="estado"
+                    value={form.estado}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    <option value="ACTIVO">ACTIVO</option>
+                    <option value="INACTIVO">INACTIVO</option>
+                  </select>
+                </label>
+                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
+                  Descripción
+                  <textarea
+                    name="descripcion"
+                    value={form.descripcion ?? ""}
+                    onChange={change}
+                    rows={3}
+                    style={{ ...s.input, resize: "vertical" }}
+                  />
+                </label>
+              </div>
+              <div style={s.row}>
+                <button type="submit" style={s.btnPrimary}>
+                  Guardar
+                </button>
+                <button type="button" style={s.btnSecondary} onClick={reset}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div style={s.card}>
+          <DataTable columns={columns} data={data} isLoading={isLoading} />
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
