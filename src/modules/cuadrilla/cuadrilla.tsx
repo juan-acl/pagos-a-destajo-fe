@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
+import AppShell from "@/components/layout/AppShell";
 
 type Cuadrilla = {
     id: number;
@@ -35,6 +36,7 @@ export default function Cuadrilla() {
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
 
     return (
+        <AppShell>
         <div style={s.page}>
             <div style={s.header}>
                 <h1 style={s.title}>Cuadrillas</h1>
@@ -98,6 +100,7 @@ export default function Cuadrilla() {
                 )}
             </div>
         </div>
+        </AppShell>
     );
 }
 
