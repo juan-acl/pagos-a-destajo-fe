@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import AppShell from "@/components/layout/AppShell";
 
+type Puesto = { id: number; nombre: string; };
+
 type Empleado = {
     id: number;
     primerNombre: string;
@@ -11,6 +13,7 @@ type Empleado = {
     segundoApellido?: string | null;
     email: string;
     codigoEmpleado?: string | null;
+    pstPuesto?: number | null;
     estado: string;
 };
 
@@ -24,10 +27,12 @@ const empty: EmpleadoForm = {
     email: "",
     password: "",
     codigoEmpleado: "",
+    pstPuesto: null,
     estado: "ACTIVO",
 };
 
-const fetcher = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
+const fetchEmpleados = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
+const fetchPuestos = () => api.get<{ data: Puesto[] }>("/position-workers").then(r => r.data.data);
 
 export default function Empleado() {
     const qc = useQueryClient();
@@ -35,7 +40,8 @@ export default function Empleado() {
     const [editId, setEditId] = useState<number | null>(null);
     const [open, setOpen] = useState(false);
 
-    const { data = [], isLoading } = useQuery({ queryKey: ["empleados"], queryFn: fetcher });
+    const { data = [], isLoading } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
+    const { data: puestos = [] } = useQuery({ queryKey: ["puestos"], queryFn: fetchPuestos });
 
     const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); };
     const create = useMutation({ mutationFn: (d: EmpleadoForm) => api.post("/empleados", d), onSuccess: invalidate });
@@ -52,101 +58,126 @@ export default function Empleado() {
             email: e.email,
             password: "",
             codigoEmpleado: e.codigoEmpleado ?? "",
+            pstPuesto: e.pstPuesto ?? null,
             estado: e.estado,
         });
         setEditId(e.id);
         setOpen(true);
     };
-    const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+
+    const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setForm(p => ({
+            ...p,
+            [name]: name === "pstPuesto" ? (value ? Number(value) : null) : value,
+        }));
+    };
+
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
+
+    const getNombrePuesto = (id: number | null | undefined) => {
+        if (!id) return "-";
+        const puesto = puestos.find(p => p.id === id);
+        return puesto ? puesto.nombre : "-";
+    };
 
     return (
         <AppShell>
-        <div style={s.page}>
-            <div style={s.header}>
-                <h1 style={s.title}>Empleados</h1>
-                <button style={s.btnPrimary} onClick={() => { reset(); setOpen(true); }}>+ Nuevo</button>
-            </div>
-
-            {open && (
-                <div style={s.card}>
-                    <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} empleado</h2>
-                    <form onSubmit={submit}>
-                        <div style={s.grid}>
-                            <label style={s.label}>
-                                Primer nombre *
-                                <input name="primerNombre" value={form.primerNombre} onChange={change} required style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Segundo nombre
-                                <input name="segundoNombre" value={form.segundoNombre ?? ""} onChange={change} style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Primer apellido *
-                                <input name="primerApellido" value={form.primerApellido} onChange={change} required style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Segundo apellido
-                                <input name="segundoApellido" value={form.segundoApellido ?? ""} onChange={change} style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Email *
-                                <input name="email" type="email" value={form.email} onChange={change} required style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                {editId ? "Nueva contraseña (opcional)" : "Contraseña *"}
-                                <input name="password" type="password" value={form.password} onChange={change} required={!editId} style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Código empleado
-                                <input name="codigoEmpleado" value={form.codigoEmpleado ?? ""} onChange={change} style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Estado
-                                <select name="estado" value={form.estado} onChange={change} style={s.input}>
-                                    <option value="ACTIVO">ACTIVO</option>
-                                    <option value="INACTIVO">INACTIVO</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div style={s.row}>
-                            <button type="submit" style={s.btnPrimary}>Guardar</button>
-                            <button type="button" style={s.btnSecondary} onClick={reset}>Cancelar</button>
-                        </div>
-                    </form>
+            <div style={s.page}>
+                <div style={s.header}>
+                    <h1 style={s.title}>Empleados</h1>
+                    <button style={s.btnPrimary} onClick={() => { reset(); setOpen(true); }}>+ Nuevo</button>
                 </div>
-            )}
 
-            <div style={s.card}>
-                {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
-                    <table style={s.table}>
-                        <thead><tr style={s.thead}>
-                            {["Código", "Nombre completo", "Email", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
-                        </tr></thead>
-                        <tbody>
-                            {data.map(e => (
-                                <tr key={e.id} style={s.tr}>
-                                    <td style={s.td}>{e.codigoEmpleado ?? "-"}</td>
-                                    <td style={s.td}>{e.primerNombre} {e.segundoNombre ?? ""} {e.primerApellido} {e.segundoApellido ?? ""}</td>
-                                    <td style={s.td}>{e.email}</td>
-                                    <td style={s.td}><span style={e.estado === "ACTIVO" ? s.activo : s.inactivo}>{e.estado}</span></td>
-                                    <td style={s.td}>
-                                        <button style={s.btnEdit} onClick={() => edit(e)}>Editar</button>
-                                        <button style={s.btnDelete} onClick={() => remove.mutate(e.id)}>Eliminar</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                {open && (
+                    <div style={s.card}>
+                        <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} empleado</h2>
+                        <form onSubmit={submit}>
+                            <div style={s.grid}>
+                                <label style={s.label}>
+                                    Primer nombre *
+                                    <input name="primerNombre" value={form.primerNombre} onChange={change} required style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Segundo nombre
+                                    <input name="segundoNombre" value={form.segundoNombre ?? ""} onChange={change} style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Primer apellido *
+                                    <input name="primerApellido" value={form.primerApellido} onChange={change} required style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Segundo apellido
+                                    <input name="segundoApellido" value={form.segundoApellido ?? ""} onChange={change} style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Email *
+                                    <input name="email" type="email" value={form.email} onChange={change} required style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    {editId ? "Nueva contraseña (opcional)" : "Contraseña *"}
+                                    <input name="password" type="password" value={form.password} onChange={change} required={!editId} style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Código empleado
+                                    <input name="codigoEmpleado" value={form.codigoEmpleado ?? ""} onChange={change} style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Puesto
+                                    <select name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change} style={s.input}>
+                                        <option value="">Sin puesto</option>
+                                        {puestos.map(p => (
+                                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label style={s.label}>
+                                    Estado
+                                    <select name="estado" value={form.estado} onChange={change} style={s.input}>
+                                        <option value="ACTIVO">ACTIVO</option>
+                                        <option value="INACTIVO">INACTIVO</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div style={s.row}>
+                                <button type="submit" style={s.btnPrimary}>Guardar</button>
+                                <button type="button" style={s.btnSecondary} onClick={reset}>Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
                 )}
+
+                <div style={s.card}>
+                    {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
+                        <table style={s.table}>
+                            <thead><tr style={s.thead}>
+                                {["Código", "Nombre completo", "Email", "Puesto", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                                {data.map(e => (
+                                    <tr key={e.id} style={s.tr}>
+                                        <td style={s.td}>{e.codigoEmpleado ?? "-"}</td>
+                                        <td style={s.td}>{e.primerNombre} {e.segundoNombre ?? ""} {e.primerApellido} {e.segundoApellido ?? ""}</td>
+                                        <td style={s.td}>{e.email}</td>
+                                        <td style={s.td}>{getNombrePuesto(e.pstPuesto)}</td>
+                                        <td style={s.td}><span style={e.estado === "ACTIVO" ? s.activo : s.inactivo}>{e.estado}</span></td>
+                                        <td style={s.td}>
+                                            <button style={s.btnEdit} onClick={() => edit(e)}>Editar</button>
+                                            <button style={s.btnDelete} onClick={() => remove.mutate(e.id)}>Eliminar</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
-        </div>
         </AppShell>
     );
 }
 
 const s: Record<string, React.CSSProperties> = {
-    page: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },
+    page: { padding: "24px", maxWidth: "1200px", margin: "0 auto" },
     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" },
     title: { fontSize: "22px", fontWeight: 600, margin: 0 },
     subtitle: { fontSize: "16px", fontWeight: 500, marginBottom: "16px" },
