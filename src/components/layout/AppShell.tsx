@@ -4,10 +4,12 @@ import { crudStyles as s } from "@/styles/crudStyles";
 
 const links = [
   { to: "/", label: "Inicio" },
+  { to: "/areas", label: "Areas" },
+  { to: "/planillas", label: "Planillas" },
   { to: "/empleados", label: "Empleados" },
   { to: "/cuadrillas", label: "Cuadrillas" },
   { to: "/miembros-cuadrilla", label: "Miembros" },
-  { to: "/position", label: "Puestos" },
+  { to: "/puestos", label: "Puestos" },
   { to: "/employee-assignment", label: "Asignaciones" },
   { to: "/production-review", label: "Revisiones" },
   { to: "/production-lot", label: "Lotes" },
