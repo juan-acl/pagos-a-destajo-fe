@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
+import AppShell from "@/components/layout/AppShell";
+
 type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; };
 type Cuadrilla = { id: number; nombre: string; };
 type MiembroCuadrilla = {
@@ -57,87 +59,89 @@ export default function MiembroCuadrilla() {
     };
 
     return (
-        <div style={s.page}>
-            <div style={s.header}>
-                <h1 style={s.title}>Miembros de cuadrilla</h1>
-                <button style={s.btnPrimary} onClick={() => { reset(); setOpen(true); }}>+ Nuevo</button>
-            </div>
-
-            {open && (
-                <div style={s.card}>
-                    <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} miembro</h2>
-                    <form onSubmit={submit}>
-                        <div style={s.grid}>
-                            <label style={s.label}>
-                                Empleado *
-                                <select name="empleadoId" value={form.empleadoId || ""} onChange={change} required style={s.input}>
-                                    <option value="">Selecciona un empleado</option>
-                                    {empleados.map(e => (
-                                        <option key={e.id} value={e.id}>
-                                            {e.codigoEmpleado} - {e.primerNombre} {e.primerApellido}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label style={s.label}>
-                                Cuadrilla *
-                                <select name="cuadrillaId" value={form.cuadrillaId || ""} onChange={change} required style={s.input}>
-                                    <option value="">Selecciona una cuadrilla</option>
-                                    {cuadrillas.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.nombre}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label style={s.label}>
-                                Fecha de ingreso
-                                <input name="fechaIngreso" type="date" value={form.fechaIngreso ?? ""} onChange={change} style={s.input} />
-                            </label>
-                            <label style={s.label}>
-                                Estado
-                                <select name="estado" value={form.estado} onChange={change} style={s.input}>
-                                    <option value="ACTIVO">ACTIVO</option>
-                                    <option value="INACTIVO">INACTIVO</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div style={s.row}>
-                            <button type="submit" style={s.btnPrimary}>Guardar</button>
-                            <button type="button" style={s.btnSecondary} onClick={reset}>Cancelar</button>
-                        </div>
-                    </form>
+        <AppShell>
+            <div style={s.page}>
+                <div style={s.header}>
+                    <h1 style={s.title}>Miembros de cuadrilla</h1>
+                    <button style={s.btnPrimary} onClick={() => { reset(); setOpen(true); }}>+ Nuevo</button>
                 </div>
-            )}
 
-            <div style={s.card}>
-                {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
-                    <table style={s.table}>
-                        <thead><tr style={s.thead}>
-                            {["Empleado", "Cuadrilla", "Fecha ingreso", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
-                        </tr></thead>
-                        <tbody>
-                            {data.map(m => (
-                                <tr key={m.id} style={s.tr}>
-                                    <td style={s.td}>
-                                        {m.empleado ? `${m.empleado.codigoEmpleado} - ${m.empleado.primerNombre} ${m.empleado.primerApellido}` : m.empleadoId}
-                                    </td>
-                                    <td style={s.td}>
-                                        {m.cuadrilla ? m.cuadrilla.nombre : m.cuadrillaId}
-                                    </td>
-                                    <td style={s.td}>{m.fechaIngreso ?? "-"}</td>
-                                    <td style={s.td}><span style={m.estado === "ACTIVO" ? s.activo : s.inactivo}>{m.estado}</span></td>
-                                    <td style={s.td}>
-                                        <button style={s.btnEdit} onClick={() => edit(m)}>Editar</button>
-                                        <button style={s.btnDelete} onClick={() => remove.mutate(m.id)}>Eliminar</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                {open && (
+                    <div style={s.card}>
+                        <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} miembro</h2>
+                        <form onSubmit={submit}>
+                            <div style={s.grid}>
+                                <label style={s.label}>
+                                    Empleado *
+                                    <select name="empleadoId" value={form.empleadoId || ""} onChange={change} required style={s.input}>
+                                        <option value="">Selecciona un empleado</option>
+                                        {empleados.map(e => (
+                                            <option key={e.id} value={e.id}>
+                                                {e.codigoEmpleado} - {e.primerNombre} {e.primerApellido}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label style={s.label}>
+                                    Cuadrilla *
+                                    <select name="cuadrillaId" value={form.cuadrillaId || ""} onChange={change} required style={s.input}>
+                                        <option value="">Selecciona una cuadrilla</option>
+                                        {cuadrillas.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.nombre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label style={s.label}>
+                                    Fecha de ingreso
+                                    <input name="fechaIngreso" type="date" value={form.fechaIngreso ?? ""} onChange={change} style={s.input} />
+                                </label>
+                                <label style={s.label}>
+                                    Estado
+                                    <select name="estado" value={form.estado} onChange={change} style={s.input}>
+                                        <option value="ACTIVO">ACTIVO</option>
+                                        <option value="INACTIVO">INACTIVO</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div style={s.row}>
+                                <button type="submit" style={s.btnPrimary}>Guardar</button>
+                                <button type="button" style={s.btnSecondary} onClick={reset}>Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
                 )}
+
+                <div style={s.card}>
+                    {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
+                        <table style={s.table}>
+                            <thead><tr style={s.thead}>
+                                {["Empleado", "Cuadrilla", "Fecha ingreso", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                                {data.map(m => (
+                                    <tr key={m.id} style={s.tr}>
+                                        <td style={s.td}>
+                                            {m.empleado ? `${m.empleado.codigoEmpleado} - ${m.empleado.primerNombre} ${m.empleado.primerApellido}` : m.empleadoId}
+                                        </td>
+                                        <td style={s.td}>
+                                            {m.cuadrilla ? m.cuadrilla.nombre : m.cuadrillaId}
+                                        </td>
+                                        <td style={s.td}>{m.fechaIngreso ?? "-"}</td>
+                                        <td style={s.td}><span style={m.estado === "ACTIVO" ? s.activo : s.inactivo}>{m.estado}</span></td>
+                                        <td style={s.td}>
+                                            <button style={s.btnEdit} onClick={() => edit(m)}>Editar</button>
+                                            <button style={s.btnDelete} onClick={() => remove.mutate(m.id)}>Eliminar</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
-        </div>
+        </AppShell>
     );
 }
 
