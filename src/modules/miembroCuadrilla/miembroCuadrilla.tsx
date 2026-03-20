@@ -1,20 +1,24 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
-
+type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; };
+type Cuadrilla = { id: number; nombre: string; };
 type MiembroCuadrilla = {
     id: number;
     empleadoId: number;
     cuadrillaId: number;
+    empleado?: { codigoEmpleado: string | null; primerNombre: string; primerApellido: string; };
+    cuadrilla?: { nombre: string; };
     fechaIngreso?: string | null;
     estado: string;
 };
-
 type MiembroForm = Omit<MiembroCuadrilla, "id">;
 
 const empty: MiembroForm = { empleadoId: 0, cuadrillaId: 0, fechaIngreso: "", estado: "ACTIVO" };
 
-const fetcher = () => api.get<{ data: MiembroCuadrilla[] }>("/miembros-cuadrilla").then(r => r.data.data);
+const fetchMiembros = () => api.get<{ data: MiembroCuadrilla[] }>("/miembros-cuadrilla").then(r => r.data.data);
+const fetchEmpleados = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
+const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 
 export default function MiembroCuadrilla() {
     const qc = useQueryClient();
@@ -22,7 +26,9 @@ export default function MiembroCuadrilla() {
     const [editId, setEditId] = useState<number | null>(null);
     const [open, setOpen] = useState(false);
 
-    const { data = [], isLoading } = useQuery({ queryKey: ["miembros-cuadrilla"], queryFn: fetcher });
+    const { data = [], isLoading } = useQuery({ queryKey: ["miembros-cuadrilla"], queryFn: fetchMiembros });
+    const { data: empleados = [] } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
+    const { data: cuadrillas = [] } = useQuery({ queryKey: ["cuadrillas"], queryFn: fetchCuadrillas });
 
     const invalidate = () => { qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); reset(); };
     const create = useMutation({ mutationFn: (d: MiembroForm) => api.post("/miembros-cuadrilla", d), onSuccess: invalidate });
@@ -31,8 +37,24 @@ export default function MiembroCuadrilla() {
 
     const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
     const edit = (m: MiembroCuadrilla) => { setForm({ empleadoId: m.empleadoId, cuadrillaId: m.cuadrillaId, fechaIngreso: m.fechaIngreso ?? "", estado: m.estado }); setEditId(m.id); setOpen(true); };
-    const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+    const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setForm(p => ({
+            ...p,
+            [name]: name === "empleadoId" || name === "cuadrillaId" ? Number(value) : value,
+        }));
+    };
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
+
+    const getNombreEmpleado = (id: number) => {
+        const emp = empleados.find(e => e.id === id);
+        return emp ? `${emp.codigoEmpleado} - ${emp.primerNombre} ${emp.primerApellido}` : id;
+    };
+
+    const getNombreCuadrilla = (id: number) => {
+        const cua = cuadrillas.find(c => c.id === id);
+        return cua ? cua.nombre : id;
+    };
 
     return (
         <div style={s.page}>
@@ -47,12 +69,26 @@ export default function MiembroCuadrilla() {
                     <form onSubmit={submit}>
                         <div style={s.grid}>
                             <label style={s.label}>
-                                ID Empleado *
-                                <input name="empleadoId" type="number" value={form.empleadoId || ""} onChange={change} required style={s.input} />
+                                Empleado *
+                                <select name="empleadoId" value={form.empleadoId || ""} onChange={change} required style={s.input}>
+                                    <option value="">Selecciona un empleado</option>
+                                    {empleados.map(e => (
+                                        <option key={e.id} value={e.id}>
+                                            {e.codigoEmpleado} - {e.primerNombre} {e.primerApellido}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
                             <label style={s.label}>
-                                ID Cuadrilla *
-                                <input name="cuadrillaId" type="number" value={form.cuadrillaId || ""} onChange={change} required style={s.input} />
+                                Cuadrilla *
+                                <select name="cuadrillaId" value={form.cuadrillaId || ""} onChange={change} required style={s.input}>
+                                    <option value="">Selecciona una cuadrilla</option>
+                                    {cuadrillas.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.nombre}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
                             <label style={s.label}>
                                 Fecha de ingreso
@@ -78,13 +114,17 @@ export default function MiembroCuadrilla() {
                 {isLoading ? <p style={s.empty}>Cargando...</p> : data.length === 0 ? <p style={s.empty}>Sin registros</p> : (
                     <table style={s.table}>
                         <thead><tr style={s.thead}>
-                            {["ID Empleado", "ID Cuadrilla", "Fecha ingreso", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
+                            {["Empleado", "Cuadrilla", "Fecha ingreso", "Estado", "Acciones"].map(h => <th key={h} style={s.th}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                             {data.map(m => (
                                 <tr key={m.id} style={s.tr}>
-                                    <td style={s.td}>{m.empleadoId}</td>
-                                    <td style={s.td}>{m.cuadrillaId}</td>
+                                    <td style={s.td}>
+                                        {m.empleado ? `${m.empleado.codigoEmpleado} - ${m.empleado.primerNombre} ${m.empleado.primerApellido}` : m.empleadoId}
+                                    </td>
+                                    <td style={s.td}>
+                                        {m.cuadrilla ? m.cuadrilla.nombre : m.cuadrillaId}
+                                    </td>
                                     <td style={s.td}>{m.fechaIngreso ?? "-"}</td>
                                     <td style={s.td}><span style={m.estado === "ACTIVO" ? s.activo : s.inactivo}>{m.estado}</span></td>
                                     <td style={s.td}>
