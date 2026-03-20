@@ -5,6 +5,9 @@ const PositionWorker = lazy(() => import("@/modules/positionWorker/positionWorke
 const Empleado = lazy(() => import("@/modules/empleado/empleado"));
 const Cuadrilla = lazy(() => import("@/modules/cuadrilla/cuadrilla"));
 const MiembroCuadrilla = lazy(() => import("@/modules/miembroCuadrilla/miembroCuadrilla"));
+const Area = lazy(() => import("@/modules/area/area"));
+const Planilla = lazy(() => import("@/modules/planilla/planilla"));
+const Puesto = lazy(() => import("@/modules/puesto/puesto"));
 
 export default function Router() {
   return (
@@ -15,6 +18,9 @@ export default function Router() {
           <Route path="/empleados" element={<Empleado />} />
           <Route path="/cuadrillas" element={<Cuadrilla />} />
           <Route path="/miembros-cuadrilla" element={<MiembroCuadrilla />} />
+          <Route path="/areas" element={<Area />} />
+          <Route path="/planillas" element={<Planilla />} />
+          <Route path="/puestos" element={<Puesto />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
