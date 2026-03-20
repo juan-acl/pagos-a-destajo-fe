@@ -27,9 +27,7 @@ export default function Home() {
         <div style={s.header}>
           <div style={s.titleGroup}>
             <h1 style={s.title}>Pagos a destajo</h1>
-            <p style={s.description}>
-              Frontend base construido sobre la estructura del proyecto de referencia, listo para consumir el backend en Oracle.
-            </p>
+
           </div>
         </div>
 
@@ -45,12 +43,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div style={s.card}>
-          <h2 style={s.subtitle}>Módulos integrados</h2>
-          <p style={s.description}>
-            Esta base deja listas las pantallas CRUD para asignaciones, revisiones y lotes de producción, manteniendo el mismo patrón visual de tarjetas, formularios y tablas.
-          </p>
-        </div>
+        
       </div>
     </AppShell>
   );
