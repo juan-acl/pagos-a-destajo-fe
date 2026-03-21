@@ -165,7 +165,7 @@ export default function EmployeeAssignmentPage() {
         <div style={s.header}>
           <div style={s.titleGroup}>
             <h1 style={s.title}>Asignación de empleado</h1>
-            <p style={s.description}>CRUD para la tabla DES_ASIGNACION_EMPLEADO.</p>
+  
           </div>
           <button
             style={s.btnPrimary}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import AppShell from "@/components/layout/AppShell";
@@ -15,6 +15,13 @@ type ProductionReview = {
   asignacionEmpleadoId: number;
 };
 
+type EmployeeAssignment = {
+  id: number;
+  metaIndividual: number;
+  estado: string;
+  cuadrillaId: number;
+};
+
 type ProductionReviewForm = {
   cantidadRecibida: number | "";
   cantidadAprobada: number | "";
@@ -27,15 +34,20 @@ type ProductionReviewForm = {
 const empty: ProductionReviewForm = {
   cantidadRecibida: "",
   cantidadAprobada: "",
-  estadoRevision: "PENDIENTE",
+  estadoRevision: "APROBADO",
   observaciones: "",
   fechaRevision: "",
   asignacionEmpleadoId: "",
 };
 
-const fetcher = () =>
+const fetchReviews = () =>
   api
     .get<ApiEnvelope<ProductionReview[]>>("/production-review")
+    .then((response) => response.data.data);
+
+const fetchAssignments = () =>
+  api
+    .get<ApiEnvelope<EmployeeAssignment[]>>("/employee-assignment")
     .then((response) => response.data.data);
 
 export default function ProductionReviewPage() {
@@ -45,10 +57,27 @@ export default function ProductionReviewPage() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const { data = [], isLoading } = useQuery({
+  const { data: reviews = [], isLoading } = useQuery({
     queryKey: ["production-review"],
-    queryFn: fetcher,
+    queryFn: fetchReviews,
   });
+
+  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
+    queryKey: ["employee-assignment"],
+    queryFn: fetchAssignments,
+  });
+
+  const assignmentsDisponibles = useMemo(
+    () => assignments.filter((item) => item.estado === "ACTIVO"),
+    [assignments]
+  );
+
+  const getAssignmentLabel = (assignmentId: number) => {
+    const assignment = assignments.find((item) => item.id === assignmentId);
+    if (!assignment) return `ID ${assignmentId}`;
+
+    return `Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId}`;
+  };
 
   const reset = () => {
     setForm(empty);
@@ -68,7 +97,7 @@ export default function ProductionReviewPage() {
         cantidadRecibida: Number(payload.cantidadRecibida),
         cantidadAprobada: Number(payload.cantidadAprobada),
         estadoRevision: payload.estadoRevision,
-        observaciones: payload.observaciones || undefined,
+        observaciones: payload.observaciones || null,
         fechaRevision: payload.fechaRevision,
         asignacionEmpleadoId: Number(payload.asignacionEmpleadoId),
       }),
@@ -82,7 +111,7 @@ export default function ProductionReviewPage() {
         cantidadRecibida: Number(payload.cantidadRecibida),
         cantidadAprobada: Number(payload.cantidadAprobada),
         estadoRevision: payload.estadoRevision,
-        observaciones: payload.observaciones || undefined,
+        observaciones: payload.observaciones || null,
         fechaRevision: payload.fechaRevision,
         asignacionEmpleadoId: Number(payload.asignacionEmpleadoId),
       }),
@@ -113,12 +142,17 @@ export default function ProductionReviewPage() {
     setMessage(null);
   };
 
-  const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const change = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
+
     setForm((prev) => ({
       ...prev,
       [name]:
-        name === "cantidadRecibida" || name === "cantidadAprobada" || name === "asignacionEmpleadoId"
+        name === "cantidadRecibida" ||
+        name === "cantidadAprobada" ||
+        name === "asignacionEmpleadoId"
           ? value === ""
             ? ""
             : Number(value)
@@ -129,10 +163,17 @@ export default function ProductionReviewPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+
+    if (form.asignacionEmpleadoId === "") {
+      setMessage("Debes seleccionar una asignación de empleado.");
+      return;
+    }
+
     if (editId) {
       update.mutate(form);
       return;
     }
+
     create.mutate(form);
   };
 
@@ -142,7 +183,9 @@ export default function ProductionReviewPage() {
         <div style={s.header}>
           <div style={s.titleGroup}>
             <h1 style={s.title}>Revisión de producción</h1>
+            
           </div>
+
           <button
             style={s.btnPrimary}
             onClick={() => {
@@ -159,37 +202,93 @@ export default function ProductionReviewPage() {
         {open && (
           <div style={s.card}>
             <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} revisión</h2>
+
             <form onSubmit={submit}>
               <div style={s.grid}>
                 <label style={s.label}>
                   Cantidad recibida *
-                  <input name="cantidadRecibida" type="number" value={form.cantidadRecibida} onChange={change} required style={s.input} />
+                  <input
+                    name="cantidadRecibida"
+                    type="number"
+                    value={form.cantidadRecibida}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
                 </label>
+
                 <label style={s.label}>
                   Cantidad aprobada *
-                  <input name="cantidadAprobada" type="number" value={form.cantidadAprobada} onChange={change} required style={s.input} />
+                  <input
+                    name="cantidadAprobada"
+                    type="number"
+                    value={form.cantidadAprobada}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
                 </label>
+
                 <label style={s.label}>
-                  Estado revisión
-                  <select name="estadoRevision" value={form.estadoRevision} onChange={change} style={s.input}>
-                    <option value="PENDIENTE">PENDIENTE</option>
-                    <option value="APROBADO">APROBADO</option>
-                    <option value="RECHAZADO">RECHAZADO</option>
+                  Asignación de empleado *
+                  <select
+                    name="asignacionEmpleadoId"
+                    value={form.asignacionEmpleadoId}
+                    onChange={change}
+                    required
+                    style={s.input}
+                    disabled={loadingAssignments}
+                  >
+                    <option value="">
+                      {loadingAssignments
+                        ? "Cargando asignaciones..."
+                        : "Selecciona una asignación"}
+                    </option>
+                    {assignmentsDisponibles.map((assignment) => (
+                      <option key={assignment.id} value={assignment.id}>
+                        {`Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId}`}
+                      </option>
+                    ))}
                   </select>
                 </label>
+
+                <label style={s.label}>
+                  Estado revisión
+                  <select
+                    name="estadoRevision"
+                    value={form.estadoRevision}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    <option value="APROBADO">APROBADO</option>
+                    <option value="RECHAZADO">RECHAZADO</option>
+                    <option value="PENDIENTE">PENDIENTE</option>
+                  </select>
+                </label>
+
                 <label style={s.label}>
                   Fecha revisión *
-                  <input name="fechaRevision" type="date" value={form.fechaRevision} onChange={change} required style={s.input} />
+                  <input
+                    name="fechaRevision"
+                    type="date"
+                    value={form.fechaRevision}
+                    onChange={change}
+                    required
+                    style={s.input}
+                  />
                 </label>
-                <label style={s.label}>
-                  Asignación empleado ID *
-                  <input name="asignacionEmpleadoId" type="number" value={form.asignacionEmpleadoId} onChange={change} required style={s.input} />
-                </label>
+
                 <label style={{ ...s.label, gridColumn: "1 / -1" }}>
                   Observaciones
-                  <textarea name="observaciones" value={form.observaciones} onChange={change} style={{ ...s.input, minHeight: "90px", resize: "vertical" }} />
+                  <textarea
+                    name="observaciones"
+                    value={form.observaciones}
+                    onChange={change}
+                    style={{ ...s.input, minHeight: 110, resize: "vertical" }}
+                  />
                 </label>
               </div>
+
               <div style={s.row}>
                 <button type="submit" style={s.btnPrimary}>
                   {create.isPending || update.isPending ? "Guardando..." : "Guardar"}
@@ -206,13 +305,21 @@ export default function ProductionReviewPage() {
           <div style={s.tableWrap}>
             {isLoading ? (
               <p style={s.empty}>Cargando...</p>
-            ) : data.length === 0 ? (
+            ) : reviews.length === 0 ? (
               <p style={s.empty}>Sin registros</p>
             ) : (
               <table style={s.table}>
                 <thead>
                   <tr style={s.thead}>
-                    {["ID", "Recibida", "Aprobada", "Estado", "Fecha", "Asignación", "Observaciones", "Acciones"].map((h) => (
+                    {[
+                      "ID",
+                      "Cantidad recibida",
+                      "Cantidad aprobada",
+                      "Asignación",
+                      "Estado",
+                      "Fecha",
+                      "Acciones",
+                    ].map((h) => (
                       <th key={h} style={s.th}>
                         {h}
                       </th>
@@ -220,17 +327,22 @@ export default function ProductionReviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((item) => (
+                  {reviews.map((item) => (
                     <tr key={item.id} style={s.tr}>
                       <td style={s.td}>{item.id}</td>
                       <td style={s.td}>{item.cantidadRecibida}</td>
                       <td style={s.td}>{item.cantidadAprobada}</td>
+                      <td style={s.td}>{getAssignmentLabel(item.asignacionEmpleadoId)}</td>
                       <td style={s.td}>
-                        <span style={item.estadoRevision === "APROBADO" ? s.activo : s.inactivo}>{item.estadoRevision}</span>
+                        <span
+                          style={
+                            item.estadoRevision === "APROBADO" ? s.activo : s.inactivo
+                          }
+                        >
+                          {item.estadoRevision}
+                        </span>
                       </td>
-                      <td style={s.td}>{item.fechaRevision?.slice(0, 10) ?? "-"}</td>
-                      <td style={s.td}>{item.asignacionEmpleadoId}</td>
-                      <td style={s.td}>{item.observaciones || "-"}</td>
+                      <td style={s.td}>{item.fechaRevision?.slice(0, 10)}</td>
                       <td style={{ ...s.td, ...s.actionCell }}>
                         <button style={s.btnEdit} onClick={() => edit(item)}>
                           Editar
