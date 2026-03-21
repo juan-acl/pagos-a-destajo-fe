@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import AppShell from "@/components/layout/AppShell";
 import { crudStyles as s } from "@/styles/crudStyles";
 
 const cards = [
@@ -37,32 +36,63 @@ const cards = [
     description: "Gestiona areas de trabajo.",
     to: "/areas",
   },
+  {
+    title: "Cuadrilla",
+    description: "Gestiona cuadrillas de trabajo.",
+    to: "/cuadrillas",
+  },
+  {
+    title: "Empleado",
+    description: "Gestiona empleados, con sus datos personales y laborales.",
+    to: "/empleados",
+  },
+  {
+    title: "Miembro de cuadrilla",
+    description:
+      "Gestiona miembros de cuadrilla, con su rol y fecha de ingreso.",
+    to: "/miembros-cuadrilla",
+  },
+  {
+    title: "Unidad de medida",
+    description: "Gestiona unidades de medida para las cantidades producidas.",
+    to: "/medidas",
+  },
+  {
+    title: "Orden de trabajo",
+    description:
+      "Gestiona órdenes de trabajo, con su descripción, cantidad requerida y unidad de medida.",
+    to: "/ordenes-trabajo",
+  },
+  {
+    title: "Asignación de orden a cuadrilla",
+    description:
+      "Gestiona asignaciones de órdenes a cuadrillas, con fecha y estado.",
+    to: "/asignaciones-orden-cuadrilla",
+  },
 ];
 
 export default function Home() {
   return (
-    <AppShell>
-      <div style={s.page}>
-        <div style={s.header}>
-          <div style={s.titleGroup}>
-            <h1 style={s.title}>Pagos a destajo</h1>
-          </div>
-        </div>
-
-        <div style={s.statGrid}>
-          {cards.map((card) => (
-            <div key={card.to} style={s.statCard}>
-              <div style={s.statLabel}>{card.title}</div>
-              <p style={{ ...s.description, marginBottom: "14px" }}>
-                {card.description}
-              </p>
-              <Link to={card.to} style={{ ...s.navLink, ...s.navLinkActive }}>
-                Abrir módulo
-              </Link>
-            </div>
-          ))}
+    <div style={s.page}>
+      <div style={s.header}>
+        <div style={s.titleGroup}>
+          <h1 style={s.title}>Pagos a destajo</h1>
         </div>
       </div>
-    </AppShell>
+
+      <div style={s.statGrid}>
+        {cards.map((card) => (
+          <div key={card.to} style={s.statCard}>
+            <div style={s.statLabel}>{card.title}</div>
+            <p style={{ ...s.description, marginBottom: "14px" }}>
+              {card.description}
+            </p>
+            <Link to={card.to} style={{ ...s.navLink, ...s.navLinkActive }}>
+              Abrir módulo
+            </Link>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

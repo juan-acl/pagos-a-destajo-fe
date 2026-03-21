@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import { crudStyles as s } from "@/styles/crudStyles";
@@ -13,6 +13,14 @@ type EmployeeAssignment = {
   fecha_actualizacion?: string;
 };
 
+type Cuadrilla = {
+  id: number;
+  nombre: string;
+  codigoCuadrilla?: string | null;
+  areaId?: number | null;
+  estado: string;
+};
+
 type EmployeeAssignmentForm = {
   metaIndividual: number | "";
   estado: string;
@@ -25,9 +33,14 @@ const empty: EmployeeAssignmentForm = {
   cuadrillaId: "",
 };
 
-const fetcher = () =>
+const fetchAssignments = () =>
   api
     .get<ApiEnvelope<EmployeeAssignment[]>>("/employee-assignment")
+    .then((response) => response.data.data);
+
+const fetchCuadrillas = () =>
+  api
+    .get<ApiEnvelope<Cuadrilla[]>>("/cuadrillas")
     .then((response) => response.data.data);
 
 export default function EmployeeAssignmentPage() {
@@ -37,10 +50,29 @@ export default function EmployeeAssignmentPage() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const { data = [], isLoading } = useQuery({
+  const { data: assignments = [], isLoading } = useQuery({
     queryKey: ["employee-assignment"],
-    queryFn: fetcher,
+    queryFn: fetchAssignments,
   });
+
+  const { data: cuadrillas = [], isLoading: loadingCuadrillas } = useQuery({
+    queryKey: ["cuadrillas"],
+    queryFn: fetchCuadrillas,
+  });
+
+  const cuadrillasDisponibles = useMemo(
+    () => cuadrillas.filter((item) => item.estado === "ACTIVO"),
+    [cuadrillas],
+  );
+
+  const getCuadrillaLabel = (cuadrillaId: number) => {
+    const cuadrilla = cuadrillas.find((item) => item.id === cuadrillaId);
+    if (!cuadrilla) return `ID ${cuadrillaId}`;
+
+    return cuadrilla.codigoCuadrilla
+      ? `${cuadrilla.nombre} (${cuadrilla.codigoCuadrilla})`
+      : cuadrilla.nombre;
+  };
 
   const reset = () => {
     setForm(empty);
@@ -114,10 +146,17 @@ export default function EmployeeAssignmentPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+
+    if (form.cuadrillaId === "") {
+      setMessage("Debes seleccionar una cuadrilla.");
+      return;
+    }
+
     if (editId) {
       update.mutate(form);
       return;
     }
+
     create.mutate(form);
   };
 
@@ -143,6 +182,7 @@ export default function EmployeeAssignmentPage() {
       {open && (
         <div style={s.card}>
           <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} asignación</h2>
+
           <form onSubmit={submit}>
             <div style={s.grid}>
               <label style={s.label}>
@@ -156,17 +196,32 @@ export default function EmployeeAssignmentPage() {
                   style={s.input}
                 />
               </label>
+
               <label style={s.label}>
-                Cuadrilla ID *
-                <input
+                Cuadrilla *
+                <select
                   name="cuadrillaId"
-                  type="number"
                   value={form.cuadrillaId}
                   onChange={change}
                   required
                   style={s.input}
-                />
+                  disabled={loadingCuadrillas}
+                >
+                  <option value="">
+                    {loadingCuadrillas
+                      ? "Cargando cuadrillas..."
+                      : "Selecciona una cuadrilla"}
+                  </option>
+                  {cuadrillasDisponibles.map((cuadrilla) => (
+                    <option key={cuadrilla.id} value={cuadrilla.id}>
+                      {cuadrilla.codigoCuadrilla
+                        ? `${cuadrilla.nombre} - ${cuadrilla.codigoCuadrilla} (ID ${cuadrilla.id})`
+                        : `${cuadrilla.nombre} (ID ${cuadrilla.id})`}
+                    </option>
+                  ))}
+                </select>
               </label>
+
               <label style={s.label}>
                 Estado
                 <select
@@ -180,6 +235,7 @@ export default function EmployeeAssignmentPage() {
                 </select>
               </label>
             </div>
+
             <div style={s.row}>
               <button type="submit" style={s.btnPrimary}>
                 {create.isPending || update.isPending
@@ -198,7 +254,7 @@ export default function EmployeeAssignmentPage() {
         <div style={s.tableWrap}>
           {isLoading ? (
             <p style={s.empty}>Cargando...</p>
-          ) : data.length === 0 ? (
+          ) : assignments.length === 0 ? (
             <p style={s.empty}>Sin registros</p>
           ) : (
             <table style={s.table}>
@@ -207,7 +263,7 @@ export default function EmployeeAssignmentPage() {
                   {[
                     "ID",
                     "Meta individual",
-                    "Cuadrilla ID",
+                    "Cuadrilla",
                     "Estado",
                     "Acciones",
                   ].map((h) => (
@@ -218,11 +274,11 @@ export default function EmployeeAssignmentPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((item) => (
+                {assignments.map((item) => (
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>{item.id}</td>
                     <td style={s.td}>{item.metaIndividual}</td>
-                    <td style={s.td}>{item.cuadrillaId}</td>
+                    <td style={s.td}>{getCuadrillaLabel(item.cuadrillaId)}</td>
                     <td style={s.td}>
                       <span
                         style={item.estado === "ACTIVO" ? s.activo : s.inactivo}

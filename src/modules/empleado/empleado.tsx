@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 
+type Puesto = { id: number; nombre: string };
+
 type Empleado = {
   id: number;
   primerNombre: string;
@@ -10,6 +12,7 @@ type Empleado = {
   segundoApellido?: string | null;
   email: string;
   codigoEmpleado?: string | null;
+  pstPuesto?: number | null;
   estado: string;
 };
 
@@ -23,11 +26,14 @@ const empty: EmpleadoForm = {
   email: "",
   password: "",
   codigoEmpleado: "",
+  pstPuesto: null,
   estado: "ACTIVO",
 };
 
-const fetcher = () =>
+const fetchEmpleados = () =>
   api.get<{ data: Empleado[] }>("/empleados").then((r) => r.data.data);
+const fetchPuestos = () =>
+  api.get<{ data: Puesto[] }>("/position-workers").then((r) => r.data.data);
 
 export default function Empleado() {
   const qc = useQueryClient();
@@ -37,7 +43,11 @@ export default function Empleado() {
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["empleados"],
-    queryFn: fetcher,
+    queryFn: fetchEmpleados,
+  });
+  const { data: puestos = [] } = useQuery({
+    queryKey: ["puestos"],
+    queryFn: fetchPuestos,
   });
 
   const invalidate = () => {
@@ -71,16 +81,32 @@ export default function Empleado() {
       email: e.email,
       password: "",
       codigoEmpleado: e.codigoEmpleado ?? "",
+      pstPuesto: e.pstPuesto ?? null,
       estado: e.estado,
     });
     setEditId(e.id);
     setOpen(true);
   };
-  const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const change = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    setForm((p) => ({
+      ...p,
+      [name]: name === "pstPuesto" ? (value ? Number(value) : null) : value,
+    }));
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     editId ? update.mutate(form) : create.mutate(form);
+  };
+
+  const getNombrePuesto = (id: number | null | undefined) => {
+    if (!id) return "-";
+    const puesto = puestos.find((p) => p.id === id);
+    return puesto ? puesto.nombre : "-";
   };
 
   return (
@@ -173,6 +199,22 @@ export default function Empleado() {
                 />
               </label>
               <label style={s.label}>
+                Puesto
+                <select
+                  name="pstPuesto"
+                  value={form.pstPuesto ?? ""}
+                  onChange={change}
+                  style={s.input}
+                >
+                  <option value="">Sin puesto</option>
+                  {puestos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={s.label}>
                 Estado
                 <select
                   name="estado"
@@ -210,6 +252,7 @@ export default function Empleado() {
                   "Código",
                   "Nombre completo",
                   "Email",
+                  "Puesto",
                   "Estado",
                   "Acciones",
                 ].map((h) => (
@@ -228,6 +271,7 @@ export default function Empleado() {
                     {e.segundoApellido ?? ""}
                   </td>
                   <td style={s.td}>{e.email}</td>
+                  <td style={s.td}>{getNombrePuesto(e.pstPuesto)}</td>
                   <td style={s.td}>
                     <span style={e.estado === "ACTIVO" ? s.activo : s.inactivo}>
                       {e.estado}
@@ -255,7 +299,7 @@ export default function Empleado() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },
+  page: { padding: "24px", maxWidth: "1200px", margin: "0 auto" },
   header: {
     display: "flex",
     justifyContent: "space-between",
