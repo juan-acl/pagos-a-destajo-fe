@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
-import AppShell from "@/components/layout/AppShell";
 import { crudStyles as s } from "@/styles/crudStyles";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 
@@ -180,195 +179,193 @@ export default function ProductionReviewPage() {
   };
 
   return (
-    <AppShell>
-      <div style={s.page}>
-        <div style={s.header}>
-          <div style={s.titleGroup}>
-            <h1 style={s.title}>Revisión de producción</h1>
-          </div>
-
-          <button
-            style={s.btnPrimary}
-            onClick={() => {
-              reset();
-              setOpen(true);
-            }}
-          >
-            + Nueva revisión
-          </button>
+    <div style={s.page}>
+      <div style={s.header}>
+        <div style={s.titleGroup}>
+          <h1 style={s.title}>Revisión de producción</h1>
         </div>
 
-        {message && <div style={s.error}>{message}</div>}
+        <button
+          style={s.btnPrimary}
+          onClick={() => {
+            reset();
+            setOpen(true);
+          }}
+        >
+          + Nueva revisión
+        </button>
+      </div>
 
-        {open && (
-          <div style={s.card}>
-            <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} revisión</h2>
+      {message && <div style={s.error}>{message}</div>}
 
-            <form onSubmit={submit}>
-              <div style={s.grid}>
-                <label style={s.label}>
-                  Cantidad recibida *
-                  <input
-                    name="cantidadRecibida"
-                    type="number"
-                    value={form.cantidadRecibida}
-                    onChange={change}
-                    required
-                    style={s.input}
-                  />
-                </label>
-
-                <label style={s.label}>
-                  Cantidad aprobada *
-                  <input
-                    name="cantidadAprobada"
-                    type="number"
-                    value={form.cantidadAprobada}
-                    onChange={change}
-                    required
-                    style={s.input}
-                  />
-                </label>
-
-                <label style={s.label}>
-                  Asignación de empleado *
-                  <select
-                    name="asignacionEmpleadoId"
-                    value={form.asignacionEmpleadoId}
-                    onChange={change}
-                    required
-                    style={s.input}
-                    disabled={loadingAssignments}
-                  >
-                    <option value="">
-                      {loadingAssignments
-                        ? "Cargando asignaciones..."
-                        : "Selecciona una asignación"}
-                    </option>
-                    {assignmentsDisponibles.map((assignment) => (
-                      <option key={assignment.id} value={assignment.id}>
-                        {`Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label style={s.label}>
-                  Estado revisión
-                  <select
-                    name="estadoRevision"
-                    value={form.estadoRevision}
-                    onChange={change}
-                    style={s.input}
-                  >
-                    <option value="APROBADO">APROBADO</option>
-                    <option value="RECHAZADO">RECHAZADO</option>
-                    <option value="PENDIENTE">PENDIENTE</option>
-                  </select>
-                </label>
-
-                <label style={s.label}>
-                  Fecha revisión *
-                  <input
-                    name="fechaRevision"
-                    type="date"
-                    value={form.fechaRevision}
-                    onChange={change}
-                    required
-                    style={s.input}
-                  />
-                </label>
-
-                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                  Observaciones
-                  <textarea
-                    name="observaciones"
-                    value={form.observaciones}
-                    onChange={change}
-                    style={{ ...s.input, minHeight: 110, resize: "vertical" }}
-                  />
-                </label>
-              </div>
-
-              <div style={s.row}>
-                <button type="submit" style={s.btnPrimary}>
-                  {create.isPending || update.isPending
-                    ? "Guardando..."
-                    : "Guardar"}
-                </button>
-                <button type="button" style={s.btnSecondary} onClick={reset}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
+      {open && (
         <div style={s.card}>
-          <div style={s.tableWrap}>
-            {isLoading ? (
-              <p style={s.empty}>Cargando...</p>
-            ) : reviews.length === 0 ? (
-              <p style={s.empty}>Sin registros</p>
-            ) : (
-              <table style={s.table}>
-                <thead>
-                  <tr style={s.thead}>
-                    {[
-                      "ID",
-                      "Cantidad recibida",
-                      "Cantidad aprobada",
-                      "Asignación",
-                      "Estado",
-                      "Fecha",
-                      "Acciones",
-                    ].map((h) => (
-                      <th key={h} style={s.th}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviews.map((item) => (
-                    <tr key={item.id} style={s.tr}>
-                      <td style={s.td}>{item.id}</td>
-                      <td style={s.td}>{item.cantidadRecibida}</td>
-                      <td style={s.td}>{item.cantidadAprobada}</td>
-                      <td style={s.td}>
-                        {getAssignmentLabel(item.asignacionEmpleadoId.id)}
-                      </td>
-                      <td style={s.td}>
-                        <span
-                          style={
-                            item.estadoRevision === "APROBADO"
-                              ? s.activo
-                              : s.inactivo
-                          }
-                        >
-                          {item.estadoRevision}
-                        </span>
-                      </td>
-                      <td style={s.td}>{item.fechaRevision?.slice(0, 10)}</td>
-                      <td style={{ ...s.td, ...s.actionCell }}>
-                        <button style={s.btnEdit} onClick={() => edit(item)}>
-                          Editar
-                        </button>
-                        <button
-                          style={s.btnDelete}
-                          onClick={() => remove.mutate(item.id)}
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
+          <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} revisión</h2>
+
+          <form onSubmit={submit}>
+            <div style={s.grid}>
+              <label style={s.label}>
+                Cantidad recibida *
+                <input
+                  name="cantidadRecibida"
+                  type="number"
+                  value={form.cantidadRecibida}
+                  onChange={change}
+                  required
+                  style={s.input}
+                />
+              </label>
+
+              <label style={s.label}>
+                Cantidad aprobada *
+                <input
+                  name="cantidadAprobada"
+                  type="number"
+                  value={form.cantidadAprobada}
+                  onChange={change}
+                  required
+                  style={s.input}
+                />
+              </label>
+
+              <label style={s.label}>
+                Asignación de empleado *
+                <select
+                  name="asignacionEmpleadoId"
+                  value={form.asignacionEmpleadoId}
+                  onChange={change}
+                  required
+                  style={s.input}
+                  disabled={loadingAssignments}
+                >
+                  <option value="">
+                    {loadingAssignments
+                      ? "Cargando asignaciones..."
+                      : "Selecciona una asignación"}
+                  </option>
+                  {assignmentsDisponibles.map((assignment) => (
+                    <option key={assignment.id} value={assignment.id}>
+                      {`Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId}`}
+                    </option>
                   ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                </select>
+              </label>
+
+              <label style={s.label}>
+                Estado revisión
+                <select
+                  name="estadoRevision"
+                  value={form.estadoRevision}
+                  onChange={change}
+                  style={s.input}
+                >
+                  <option value="APROBADO">APROBADO</option>
+                  <option value="RECHAZADO">RECHAZADO</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                </select>
+              </label>
+
+              <label style={s.label}>
+                Fecha revisión *
+                <input
+                  name="fechaRevision"
+                  type="date"
+                  value={form.fechaRevision}
+                  onChange={change}
+                  required
+                  style={s.input}
+                />
+              </label>
+
+              <label style={{ ...s.label, gridColumn: "1 / -1" }}>
+                Observaciones
+                <textarea
+                  name="observaciones"
+                  value={form.observaciones}
+                  onChange={change}
+                  style={{ ...s.input, minHeight: 110, resize: "vertical" }}
+                />
+              </label>
+            </div>
+
+            <div style={s.row}>
+              <button type="submit" style={s.btnPrimary}>
+                {create.isPending || update.isPending
+                  ? "Guardando..."
+                  : "Guardar"}
+              </button>
+              <button type="button" style={s.btnSecondary} onClick={reset}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div style={s.card}>
+        <div style={s.tableWrap}>
+          {isLoading ? (
+            <p style={s.empty}>Cargando...</p>
+          ) : reviews.length === 0 ? (
+            <p style={s.empty}>Sin registros</p>
+          ) : (
+            <table style={s.table}>
+              <thead>
+                <tr style={s.thead}>
+                  {[
+                    "ID",
+                    "Cantidad recibida",
+                    "Cantidad aprobada",
+                    "Asignación",
+                    "Estado",
+                    "Fecha",
+                    "Acciones",
+                  ].map((h) => (
+                    <th key={h} style={s.th}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {reviews.map((item) => (
+                  <tr key={item.id} style={s.tr}>
+                    <td style={s.td}>{item.id}</td>
+                    <td style={s.td}>{item.cantidadRecibida}</td>
+                    <td style={s.td}>{item.cantidadAprobada}</td>
+                    <td style={s.td}>
+                      {getAssignmentLabel(item.asignacionEmpleadoId.id)}
+                    </td>
+                    <td style={s.td}>
+                      <span
+                        style={
+                          item.estadoRevision === "APROBADO"
+                            ? s.activo
+                            : s.inactivo
+                        }
+                      >
+                        {item.estadoRevision}
+                      </span>
+                    </td>
+                    <td style={s.td}>{item.fechaRevision?.slice(0, 10)}</td>
+                    <td style={{ ...s.td, ...s.actionCell }}>
+                      <button style={s.btnEdit} onClick={() => edit(item)}>
+                        Editar
+                      </button>
+                      <button
+                        style={s.btnDelete}
+                        onClick={() => remove.mutate(item.id)}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
-    </AppShell>
+    </div>
   );
 }

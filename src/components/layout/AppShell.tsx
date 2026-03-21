@@ -3,14 +3,16 @@ import { NavLink } from "react-router-dom";
 import { crudStyles as s } from "@/styles/crudStyles";
 
 const links = [
-  { to: "/", label: "Inicio" },
   { to: "/areas", label: "Areas" },
   { to: "/planillas", label: "Planillas" },
   { to: "/empleados", label: "Empleados" },
   { to: "/cuadrillas", label: "Cuadrillas" },
   { to: "/miembros-cuadrilla", label: "Miembros" },
   { to: "/puestos", label: "Puestos" },
-  { to: "/employee-assignment", label: "Asignaciones" },
+  { to: "/medidas", label: "Medidas" },
+  { to: "/ordenes-trabajo", label: "Órdenes de Trabajo" },
+  { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones" },
+  { to: "/employee-assignment", label: "Asig. Empleado" },
   { to: "/production-review", label: "Revisiones" },
   { to: "/production-lot", label: "Lotes" },
 ];
