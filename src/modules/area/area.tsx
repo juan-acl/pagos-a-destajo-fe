@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
 import DataTable from "@/components/commons/DataTable";
-import AppShell from "@/components/layout/AppShell";
 
 type Area = {
   id: number;
@@ -114,75 +113,73 @@ export default function Area() {
   ];
 
   return (
-    <AppShell>
-      <div style={s.page}>
-        <div style={s.header}>
-          <h1 style={s.title}>Áreas</h1>
-          <button
-            style={s.btnPrimary}
-            onClick={() => {
-              reset();
-              setOpen(true);
-            }}
-          >
-            + Nuevo
-          </button>
-        </div>
-
-        {open && (
-          <div style={s.card}>
-            <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} área</h2>
-            <form onSubmit={submit}>
-              <div style={s.grid}>
-                <label style={s.label}>
-                  Nombre *
-                  <input
-                    name="nombre"
-                    value={form.nombre}
-                    onChange={change}
-                    required
-                    style={s.input}
-                  />
-                </label>
-                <label style={s.label}>
-                  Código área
-                  <input
-                    name="codigoArea"
-                    value={form.codigoArea ?? ""}
-                    onChange={change}
-                    style={s.input}
-                  />
-                </label>
-                <label style={s.label}>
-                  Estado
-                  <select
-                    name="estado"
-                    value={form.estado}
-                    onChange={change}
-                    style={s.input}
-                  >
-                    <option value="ACTIVO">ACTIVO</option>
-                    <option value="INACTIVO">INACTIVO</option>
-                  </select>
-                </label>
-              </div>
-              <div style={s.row}>
-                <button type="submit" style={s.btnPrimary}>
-                  Guardar
-                </button>
-                <button type="button" style={s.btnSecondary} onClick={reset}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div style={s.card}>
-          <DataTable columns={columns} data={data} isLoading={isLoading} />
-        </div>
+    <div style={s.page}>
+      <div style={s.header}>
+        <h1 style={s.title}>Áreas</h1>
+        <button
+          style={s.btnPrimary}
+          onClick={() => {
+            reset();
+            setOpen(true);
+          }}
+        >
+          + Nuevo
+        </button>
       </div>
-    </AppShell>
+
+      {open && (
+        <div style={s.card}>
+          <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} área</h2>
+          <form onSubmit={submit}>
+            <div style={s.grid}>
+              <label style={s.label}>
+                Nombre *
+                <input
+                  name="nombre"
+                  value={form.nombre}
+                  onChange={change}
+                  required
+                  style={s.input}
+                />
+              </label>
+              <label style={s.label}>
+                Código área
+                <input
+                  name="codigoArea"
+                  value={form.codigoArea ?? ""}
+                  onChange={change}
+                  style={s.input}
+                />
+              </label>
+              <label style={s.label}>
+                Estado
+                <select
+                  name="estado"
+                  value={form.estado}
+                  onChange={change}
+                  style={s.input}
+                >
+                  <option value="ACTIVO">ACTIVO</option>
+                  <option value="INACTIVO">INACTIVO</option>
+                </select>
+              </label>
+            </div>
+            <div style={s.row}>
+              <button type="submit" style={s.btnPrimary}>
+                Guardar
+              </button>
+              <button type="button" style={s.btnSecondary} onClick={reset}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div style={s.card}>
+        <DataTable columns={columns} data={data} isLoading={isLoading} />
+      </div>
+    </div>
   );
 }
 
