@@ -12,7 +12,7 @@ type ProductionReview = {
   estadoRevision: string;
   observaciones?: string | null;
   fechaRevision: string;
-  asignacionEmpleadoId: number;
+  asignacionEmpleadoId: EmployeeAssignment;
 };
 
 type EmployeeAssignment = {
@@ -69,7 +69,7 @@ export default function ProductionReviewPage() {
 
   const assignmentsDisponibles = useMemo(
     () => assignments.filter((item) => item.estado === "ACTIVO"),
-    [assignments]
+    [assignments],
   );
 
   const getAssignmentLabel = (assignmentId: number) => {
@@ -135,7 +135,7 @@ export default function ProductionReviewPage() {
       estadoRevision: item.estadoRevision,
       observaciones: item.observaciones ?? "",
       fechaRevision: item.fechaRevision?.slice(0, 10) ?? "",
-      asignacionEmpleadoId: item.asignacionEmpleadoId,
+      asignacionEmpleadoId: item.asignacionEmpleadoId.id,
     });
     setEditId(item.id);
     setOpen(true);
@@ -143,7 +143,9 @@ export default function ProductionReviewPage() {
   };
 
   const change = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -183,7 +185,6 @@ export default function ProductionReviewPage() {
         <div style={s.header}>
           <div style={s.titleGroup}>
             <h1 style={s.title}>Revisión de producción</h1>
-            
           </div>
 
           <button
@@ -291,7 +292,9 @@ export default function ProductionReviewPage() {
 
               <div style={s.row}>
                 <button type="submit" style={s.btnPrimary}>
-                  {create.isPending || update.isPending ? "Guardando..." : "Guardar"}
+                  {create.isPending || update.isPending
+                    ? "Guardando..."
+                    : "Guardar"}
                 </button>
                 <button type="button" style={s.btnSecondary} onClick={reset}>
                   Cancelar
@@ -332,11 +335,15 @@ export default function ProductionReviewPage() {
                       <td style={s.td}>{item.id}</td>
                       <td style={s.td}>{item.cantidadRecibida}</td>
                       <td style={s.td}>{item.cantidadAprobada}</td>
-                      <td style={s.td}>{getAssignmentLabel(item.asignacionEmpleadoId)}</td>
+                      <td style={s.td}>
+                        {getAssignmentLabel(item.asignacionEmpleadoId.id)}
+                      </td>
                       <td style={s.td}>
                         <span
                           style={
-                            item.estadoRevision === "APROBADO" ? s.activo : s.inactivo
+                            item.estadoRevision === "APROBADO"
+                              ? s.activo
+                              : s.inactivo
                           }
                         >
                           {item.estadoRevision}
@@ -347,7 +354,10 @@ export default function ProductionReviewPage() {
                         <button style={s.btnEdit} onClick={() => edit(item)}>
                           Editar
                         </button>
-                        <button style={s.btnDelete} onClick={() => remove.mutate(item.id)}>
+                        <button
+                          style={s.btnDelete}
+                          onClick={() => remove.mutate(item.id)}
+                        >
                           Eliminar
                         </button>
                       </td>
