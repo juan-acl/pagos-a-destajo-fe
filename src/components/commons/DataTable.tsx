@@ -59,7 +59,13 @@ export default function DataTable<T>({ columns, data, isLoading }: DataTableProp
             </thead>
             <tbody>
                 {table.getRowModel().rows.map(row => (
-                    <tr key={row.id} style={s.tr}>
+                    <tr
+                        key={row.id}
+                        style={{
+                            borderTop: "1px solid var(--neutral-dark)",
+                            background: row.index % 2 === 0 ? "var(--white)" : "var(--neutral)",
+                        }}
+                    >
                         {row.getVisibleCells().map(cell => (
                             <td key={cell.id} style={s.td}>
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -74,9 +80,16 @@ export default function DataTable<T>({ columns, data, isLoading }: DataTableProp
 
 const s: Record<string, React.CSSProperties> = {
     table: { width: "100%", borderCollapse: "collapse", fontSize: "14px" },
-    thead: { background: "#f8fafc" },
-    th: { padding: "10px 14px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e2e8f0" },
-    tr: { borderBottom: "1px solid #f1f5f9" },
-    td: { padding: "10px 14px" },
-    empty: { textAlign: "center", padding: "32px", color: "#888" },
+    thead: { background: "var(--neutral)" },
+    th: {
+        padding: "12px 16px",
+        textAlign: "left",
+        fontSize: "12px",
+        fontWeight: 600,
+        color: "var(--text-secondary)",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+    },
+    td: { padding: "12px 16px" },
+    empty: { textAlign: "center", padding: "48px", color: "var(--text-muted)" },
 };
