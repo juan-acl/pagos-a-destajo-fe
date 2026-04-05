@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
@@ -7,6 +7,14 @@ import { empty, type Area, type AreaForm } from "@/types/area.types";
 import { fetchAreas } from "@/api/area.api";
 import { s } from "@/styles/area.styles";
 import Modal from "@/components/ui/Modal";
+import Stats from "@/components/commons/stats";
+import {
+  areaFormFields,
+  areaStats,
+  type FormField,
+} from "@/constants/area.constants";
+import Filters, { type Option } from "@/components/commons/filters";
+import { useFilter } from "@/hooks/useFilter";
 
 export default function Area() {
   const qc = useQueryClient();
@@ -18,6 +26,52 @@ export default function Area() {
     queryKey: ["area"],
     queryFn: fetchAreas,
   });
+
+  const { filteredData, setFilter, activeFilters, setSearch, search } =
+    useFilter({
+      data,
+      filterableFields: ["nombre", "codigoArea", "estado"],
+      exactMatchFields: ["estado"],
+    });
+
+  const stats = useMemo(() => {
+    return areaStats.map((stat) => {
+      if (stat.label === "Activas") {
+        return {
+          ...stat,
+          color: "text-[#2D6A4F]",
+          value: filteredData.filter((a) => a.estado === "ACTIVO").length,
+        };
+      }
+      if (stat.label === "Inactivas") {
+        return {
+          ...stat,
+          color: "text-red-600",
+          value: filteredData.filter((a) => a.estado === "INACTIVO").length,
+        };
+      }
+      if (stat.label === "Total Áreas") {
+        return {
+          ...stat,
+          color: "text-gray-900",
+          value: filteredData.length,
+        };
+      }
+      return stat;
+    });
+  }, [filteredData]);
+
+  const optionsEstado: Option[] = useMemo(() => {
+    const seen = new Set<string>();
+
+    return data.reduce<Option[]>((acc, a) => {
+      if (!seen.has(a.estado)) {
+        seen.add(a.estado);
+        acc.push({ id: a.id, nombre: a.estado });
+      }
+      return acc;
+    }, []);
+  }, [data]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["area"] });
@@ -41,6 +95,7 @@ export default function Area() {
     setEditId(null);
     setOpen(false);
   };
+
   const edit = (a: Area) => {
     setForm({
       nombre: a.nombre,
@@ -50,6 +105,7 @@ export default function Area() {
     setEditId(a.id);
     setOpen(true);
   };
+
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -100,7 +156,7 @@ export default function Area() {
   ];
 
   return (
-    <div style={s.page}>
+    <div className="max-w-7xl mx-auto">
       <div style={s.header}>
         <div>
           <h1 style={s.title}>Áreas</h1>
@@ -118,9 +174,25 @@ export default function Area() {
           + Nuevo
         </button>
       </div>
-
+      <Stats data={stats} />
+      <Filters
+        search={search}
+        setSearch={setSearch}
+        filterValue={(activeFilters.codigoArea as string) ?? ""}
+        setFilterValue={(val: string) => setFilter("codigoArea", val)}
+        filterEstado={(activeFilters.estado as string) ?? ""}
+        setFilterEstado={(val: string) => setFilter("estado", val)}
+        options2={optionsEstado}
+        placeholder="Buscar por nombre o código..."
+        label1="Área"
+        label2="Estado"
+      />
       <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+        />
       </div>
       <Modal
         open={open}
@@ -130,37 +202,33 @@ export default function Area() {
       >
         <form onSubmit={submit}>
           <div style={s.grid}>
-            <label style={s.label}>
-              Nombre *
-              <input
-                name="nombre"
-                value={form.nombre}
-                onChange={change}
-                required
-                style={s.input}
-              />
-            </label>
-            <label style={s.label}>
-              Código área
-              <input
-                name="codigoArea"
-                value={form.codigoArea ?? ""}
-                onChange={change}
-                style={s.input}
-              />
-            </label>
-            <label style={s.label}>
-              Estado
-              <select
-                name="estado"
-                value={form.estado}
-                onChange={change}
-                style={s.input}
-              >
-                <option value="ACTIVO">ACTIVO</option>
-                <option value="INACTIVO">INACTIVO</option>
-              </select>
-            </label>
+            {areaFormFields.map((field: FormField) => (
+              <label key={field.name} style={s.label}>
+                {field.label} {field.required && "*"}
+                {field.type === "select" ? (
+                  <select
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    required={field.required}
+                    style={s.input}
+                  />
+                )}
+              </label>
+            ))}
           </div>
           <div style={s.row}>
             <button type="submit" style={s.btnPrimary}>

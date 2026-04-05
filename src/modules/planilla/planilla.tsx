@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
@@ -11,6 +11,10 @@ import {
 } from "@/types/planilla.types";
 import { fetchLotesProduccion, fetchPlanillas } from "@/api/planilla.api";
 import Modal from "@/components/ui/Modal";
+import Stats from "@/components/commons/stats";
+import Filters, { type Option } from "@/components/commons/filters";
+import { planillaStats } from "@/constants/planilla.constants";
+import { useFilter } from "@/hooks/useFilter";
 
 export default function Planilla() {
   const qc = useQueryClient();
@@ -28,18 +32,73 @@ export default function Planilla() {
     queryFn: fetchLotesProduccion,
   });
 
+  const { filteredData, setFilter, activeFilters, setSearch, search } =
+    useFilter({
+      data,
+      filterableFields: [
+        "descripcion",
+        "loteProduccion",
+        "estado",
+        "metodoPago",
+        "montoTotal",
+      ],
+      exactMatchFields: ["estado"],
+    });
+
+  const stats = useMemo(() => {
+    return planillaStats.map((stat) => {
+      if (stat.label === "Pagadas") {
+        return {
+          ...stat,
+          color: "text-[#2D6A4F]",
+          value: filteredData.filter((a) => a.estado === "PAGADO").length,
+        };
+      }
+      if (stat.label === "Inactivas") {
+        return {
+          ...stat,
+          color: "text-red-600",
+          value: filteredData.filter((a) => a.estado === "INACTIVO").length,
+        };
+      }
+      if (stat.label === "Total Áreas") {
+        return {
+          ...stat,
+          color: "text-gray-900",
+          value: filteredData.length,
+        };
+      }
+      return stat;
+    });
+  }, [filteredData]);
+
+  const optionsEstado: Option[] = useMemo(() => {
+    const seen = new Set<string>();
+
+    return data.reduce<Option[]>((acc, a) => {
+      if (!seen.has(a.estado)) {
+        seen.add(a.estado);
+        acc.push({ id: a.id, nombre: a.estado });
+      }
+      return acc;
+    }, []);
+  }, [data]);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["planilla"] });
     reset();
   };
+
   const create = useMutation({
     mutationFn: (d: PlanillaForm) => api.post("/planilla", d),
     onSuccess: invalidate,
   });
+
   const update = useMutation({
     mutationFn: (d: PlanillaForm) => api.put(`/planilla/${editId}`, d),
     onSuccess: invalidate,
   });
+
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/planilla/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["planilla"] }),
@@ -82,6 +141,7 @@ export default function Planilla() {
           ? Number(e.target.value)
           : e.target.value,
     }));
+
   const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (editId) {
@@ -140,12 +200,13 @@ export default function Planilla() {
   ];
 
   return (
-    <div style={s.page}>
+    <div className="max-w-7xl mx-auto">
       <div style={s.header}>
         <div>
           <h1 style={s.title}>Planillas</h1>
           <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Administre las planillas de pago vinculadas a los lotes de producción.
+            Administre las planillas de pago vinculadas a los lotes de
+            producción.
           </p>
         </div>
         <button
@@ -159,8 +220,26 @@ export default function Planilla() {
         </button>
       </div>
 
+      <Stats data={stats} />
+      <Filters
+        search={search}
+        setSearch={setSearch}
+        filterValue={(activeFilters.loteProduccion as string) ?? ""}
+        setFilterValue={(val: string) => setFilter("loteProduccion", val)}
+        filterEstado={(activeFilters.estado as string) ?? ""}
+        setFilterEstado={(val: string) => setFilter("estado", val)}
+        options2={optionsEstado}
+        placeholder="Buscar por descripción o lote de producción..."
+        label1="Planilla"
+        label2="Estado"
+      />
+
       <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+        />
       </div>
 
       <Modal
