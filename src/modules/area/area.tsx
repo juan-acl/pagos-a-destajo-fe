@@ -1,26 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
 import DataTable from "@/components/commons/DataTable";
-
-type Area = {
-  id: number;
-  nombre: string;
-  codigoArea?: string | null;
-  estado: string;
-};
-
-type AreaForm = Omit<Area, "id">;
-
-const empty: AreaForm = {
-  nombre: "",
-  codigoArea: "",
-  estado: "ACTIVO",
-};
-
-const fetcher = () =>
-  api.get<{ data: Area[] }>("/area").then((r) => r.data.data);
+import { empty, type Area, type AreaForm } from "@/types/area.types";
+import { fetchAreas } from "@/api/area.api";
+import { s } from "@/styles/area.styles";
+import Modal from "@/components/ui/Modal";
+import Stats from "@/components/commons/stats";
+import {
+  areaFormFields,
+  areaStats,
+  type FormField,
+} from "@/constants/area.constants";
+import Filters, { type Option } from "@/components/commons/filters";
+import { useFilter } from "@/hooks/useFilter";
 
 export default function Area() {
   const qc = useQueryClient();
@@ -30,8 +24,54 @@ export default function Area() {
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["area"],
-    queryFn: fetcher,
+    queryFn: fetchAreas,
   });
+
+  const { filteredData, setFilter, activeFilters, setSearch, search } =
+    useFilter({
+      data,
+      filterableFields: ["nombre", "codigoArea", "estado"],
+      exactMatchFields: ["estado"],
+    });
+
+  const stats = useMemo(() => {
+    return areaStats.map((stat) => {
+      if (stat.label === "Activas") {
+        return {
+          ...stat,
+          color: "text-[#2D6A4F]",
+          value: filteredData.filter((a) => a.estado === "ACTIVO").length,
+        };
+      }
+      if (stat.label === "Inactivas") {
+        return {
+          ...stat,
+          color: "text-red-600",
+          value: filteredData.filter((a) => a.estado === "INACTIVO").length,
+        };
+      }
+      if (stat.label === "Total Áreas") {
+        return {
+          ...stat,
+          color: "text-gray-900",
+          value: filteredData.length,
+        };
+      }
+      return stat;
+    });
+  }, [filteredData]);
+
+  const optionsEstado: Option[] = useMemo(() => {
+    const seen = new Set<string>();
+
+    return data.reduce<Option[]>((acc, a) => {
+      if (!seen.has(a.estado)) {
+        seen.add(a.estado);
+        acc.push({ id: a.id, nombre: a.estado });
+      }
+      return acc;
+    }, []);
+  }, [data]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["area"] });
@@ -55,6 +95,7 @@ export default function Area() {
     setEditId(null);
     setOpen(false);
   };
+
   const edit = (a: Area) => {
     setForm({
       nombre: a.nombre,
@@ -64,9 +105,11 @@ export default function Area() {
     setEditId(a.id);
     setOpen(true);
   };
+
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
-  const submit = (e: React.FormEvent) => {
+
+  const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (editId) {
       update.mutate(form);
@@ -98,14 +141,14 @@ export default function Area() {
       enableSorting: false,
       cell: ({ row }) => (
         <>
-          <button style={s.btnEdit} onClick={() => edit(row.original)}>
-            Editar
+          <button style={s.btnIcon} onClick={() => edit(row.original)}>
+            ✏️
           </button>
           <button
-            style={s.btnDelete}
+            style={s.btnIcon}
             onClick={() => remove.mutate(row.original.id)}
           >
-            Eliminar
+            🗑️
           </button>
         </>
       ),
@@ -113,9 +156,14 @@ export default function Area() {
   ];
 
   return (
-    <div style={s.page}>
+    <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <h1 style={s.title}>Áreas</h1>
+        <div>
+          <h1 style={s.title}>Áreas</h1>
+          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+            Organice y gestione las áreas de producción y su estado operativo.
+          </p>
+        </div>
         <button
           style={s.btnPrimary}
           onClick={() => {
@@ -126,144 +174,72 @@ export default function Area() {
           + Nuevo
         </button>
       </div>
-
-      {open && (
-        <div style={s.card}>
-          <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} área</h2>
-          <form onSubmit={submit}>
-            <div style={s.grid}>
-              <label style={s.label}>
-                Nombre *
-                <input
-                  name="nombre"
-                  value={form.nombre}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Código área
-                <input
-                  name="codigoArea"
-                  value={form.codigoArea ?? ""}
-                  onChange={change}
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Estado
-                <select
-                  name="estado"
-                  value={form.estado}
-                  onChange={change}
-                  style={s.input}
-                >
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                </select>
-              </label>
-            </div>
-            <div style={s.row}>
-              <button type="submit" style={s.btnPrimary}>
-                Guardar
-              </button>
-              <button type="button" style={s.btnSecondary} onClick={reset}>
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
+      <Stats data={stats} />
+      <Filters
+        search={search}
+        setSearch={setSearch}
+        filterValue={(activeFilters.codigoArea as string) ?? ""}
+        setFilterValue={(val: string) => setFilter("codigoArea", val)}
+        filterEstado={(activeFilters.estado as string) ?? ""}
+        setFilterEstado={(val: string) => setFilter("estado", val)}
+        options2={optionsEstado}
+        placeholder="Buscar por nombre o código..."
+        label1="Área"
+        label2="Estado"
+      />
       <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+        />
       </div>
+      <Modal
+        open={open}
+        title={editId ? "Editar Área" : "Nuevo Área"}
+        subtitle="Complete la información para registrar el área."
+        onClose={reset}
+      >
+        <form onSubmit={submit}>
+          <div style={s.grid}>
+            {areaFormFields.map((field: FormField) => (
+              <label key={field.name} style={s.label}>
+                {field.label} {field.required && "*"}
+                {field.type === "select" ? (
+                  <select
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    required={field.required}
+                    style={s.input}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <div style={s.row}>
+            <button type="submit" style={s.btnPrimary}>
+              Guardar
+            </button>
+            <button type="button" style={s.btnSecondary} onClick={reset}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  page: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px",
-  },
-  title: { fontSize: "22px", fontWeight: 600, margin: 0 },
-  subtitle: { fontSize: "16px", fontWeight: 500, marginBottom: "16px" },
-  card: {
-    background: "#fff",
-    borderRadius: "10px",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-    padding: "24px",
-    marginBottom: "20px",
-  },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" },
-  row: { display: "flex", gap: "8px", marginTop: "16px" },
-  label: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    fontSize: "13px",
-    fontWeight: 500,
-  },
-  input: {
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    padding: "7px 10px",
-    fontSize: "14px",
-  },
-  btnPrimary: {
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    padding: "8px 16px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  btnSecondary: {
-    background: "#f1f5f9",
-    color: "#333",
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    padding: "8px 16px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  btnEdit: {
-    background: "#f59e0b",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "13px",
-    marginRight: "6px",
-  },
-  btnDelete: {
-    background: "#ef4444",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "13px",
-  },
-  activo: {
-    background: "#dcfce7",
-    color: "#166534",
-    borderRadius: "999px",
-    padding: "2px 10px",
-    fontSize: "12px",
-  },
-  inactivo: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    borderRadius: "999px",
-    padding: "2px 10px",
-    fontSize: "12px",
-  },
-};

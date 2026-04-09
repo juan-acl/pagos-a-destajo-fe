@@ -1,26 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
 import DataTable from "@/components/commons/DataTable";
-
-type Puesto = {
-  id: number;
-  nombre: string;
-  descripcion?: string | null;
-  estado: string;
-};
-
-type PuestoForm = Omit<Puesto, "id">;
-
-const empty: PuestoForm = {
-  nombre: "",
-  descripcion: "",
-  estado: "ACTIVO",
-};
-
-const fetcher = () =>
-  api.get<{ data: Puesto[] }>("/position-workers").then((r) => r.data.data);
+import { s } from "@/styles/puesto.styles";
+import { empty, type Puesto, type PuestoForm } from "@/types/puesto.types";
+import { fetchPuestos } from "@/api/puesto.api";
+import Modal from "@/components/ui/Modal";
+import Stats from "@/components/commons/stats";
+import { useFilter } from "@/hooks/useFilter";
+import Filters, { type Option } from "@/components/commons/filters";
+import {
+  puestoFormFields,
+  puestoStats,
+  type FormField,
+} from "@/constants/puesto.constants";
 
 export default function Puesto() {
   const qc = useQueryClient();
@@ -30,21 +24,70 @@ export default function Puesto() {
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["position-workers"],
-    queryFn: fetcher,
+    queryFn: fetchPuestos,
   });
+
+  const { filteredData, setFilter, activeFilters, setSearch, search } =
+    useFilter({
+      data,
+      filterableFields: ["nombre", "descripcion", "estado"],
+      exactMatchFields: ["estado"],
+    });
+
+  const stats = useMemo(() => {
+    return puestoStats.map((stat) => {
+      if (stat.label === "Activos") {
+        return {
+          ...stat,
+          color: "text-[#2D6A4F]",
+          value: filteredData.filter((a) => a.estado === "ACTIVO").length,
+        };
+      }
+      if (stat.label === "Inactivos") {
+        return {
+          ...stat,
+          color: "text-red-600",
+          value: filteredData.filter((a) => a.estado === "INACTIVO").length,
+        };
+      }
+      if (stat.label === "Total Puestos") {
+        return {
+          ...stat,
+          color: "text-gray-900",
+          value: filteredData.length,
+        };
+      }
+      return stat;
+    });
+  }, [filteredData]);
+
+  const optionsEstado: Option[] = useMemo(() => {
+    const seen = new Set<string>();
+
+    return data.reduce<Option[]>((acc, a) => {
+      if (!seen.has(a.estado)) {
+        seen.add(a.estado);
+        acc.push({ id: a.id, nombre: a.estado });
+      }
+      return acc;
+    }, []);
+  }, [data]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["position-workers"] });
     reset();
   };
+
   const create = useMutation({
     mutationFn: (d: PuestoForm) => api.post("/position-workers", d),
     onSuccess: invalidate,
   });
+
   const update = useMutation({
     mutationFn: (d: PuestoForm) => api.put(`/position-workers/${editId}`, d),
     onSuccess: invalidate,
   });
+
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/position-workers/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["position-workers"] }),
@@ -55,6 +98,7 @@ export default function Puesto() {
     setEditId(null);
     setOpen(false);
   };
+
   const edit = (p: Puesto) => {
     setForm({
       nombre: p.nombre,
@@ -64,12 +108,14 @@ export default function Puesto() {
     setEditId(p.id);
     setOpen(true);
   };
+
   const change = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
-  const submit = (e: React.FormEvent) => {
+
+  const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (editId) {
       update.mutate(form);
@@ -101,14 +147,14 @@ export default function Puesto() {
       enableSorting: false,
       cell: ({ row }) => (
         <>
-          <button style={s.btnEdit} onClick={() => edit(row.original)}>
-            Editar
+          <button style={s.btnIcon} onClick={() => edit(row.original)}>
+            ✏️
           </button>
           <button
-            style={s.btnDelete}
+            style={s.btnIcon}
             onClick={() => remove.mutate(row.original.id)}
           >
-            Eliminar
+            🗑️
           </button>
         </>
       ),
@@ -116,9 +162,15 @@ export default function Puesto() {
   ];
 
   return (
-    <div style={s.page}>
+    <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <h1 style={s.title}>Puestos</h1>
+        <div>
+          <h1 style={s.title}>Puestos</h1>
+          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+            Defina y gestione los puestos de trabajo disponibles en la
+            organización.
+          </p>
+        </div>
         <button
           style={s.btnPrimary}
           onClick={() => {
@@ -129,146 +181,87 @@ export default function Puesto() {
           + Nuevo
         </button>
       </div>
-
-      {open && (
-        <div style={s.card}>
-          <h2 style={s.subtitle}>{editId ? "Editar" : "Nuevo"} puesto</h2>
-          <form onSubmit={submit}>
-            <div style={s.grid}>
-              <label style={s.label}>
-                Nombre *
-                <input
-                  name="nombre"
-                  value={form.nombre}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-              <label style={s.label}>
-                Estado
-                <select
-                  name="estado"
-                  value={form.estado}
-                  onChange={change}
-                  style={s.input}
-                >
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                </select>
-              </label>
-              <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                Descripción
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion ?? ""}
-                  onChange={change}
-                  rows={3}
-                  style={{ ...s.input, resize: "vertical" }}
-                />
-              </label>
-            </div>
-            <div style={s.row}>
-              <button type="submit" style={s.btnPrimary}>
-                Guardar
-              </button>
-              <button type="button" style={s.btnSecondary} onClick={reset}>
-                Cancelar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
+      <Stats data={stats} />
+      <Filters
+        search={search}
+        setSearch={setSearch}
+        filterValue={(activeFilters.descripcion as string) ?? ""}
+        setFilterValue={(val: string) => setFilter("descripcion", val)}
+        filterEstado={(activeFilters.estado as string) ?? ""}
+        setFilterEstado={(val: string) => setFilter("estado", val)}
+        placeholder="Buscar por nombre o descripción..."
+        options2={optionsEstado}
+        label1="Puesto"
+        label2="Descripción"
+      />
       <div style={s.card}>
-        <DataTable columns={columns} data={data} isLoading={isLoading} />
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          isLoading={isLoading}
+        />
       </div>
+
+      <Modal
+        open={open}
+        title={editId ? "Editar Puesto" : "Nuevo Puesto"}
+        subtitle="Complete la información para registrar el puesto de trabajo."
+        onClose={reset}
+      >
+        <form onSubmit={submit}>
+          <div style={s.grid}>
+            {puestoFormFields.map((field: FormField) => (
+              <label
+                key={field.name}
+                style={{
+                  ...s.label,
+                  ...(field.fullWidth && { gridColumn: "1 / -1" }),
+                }}
+              >
+                {field.label} {field.required && "*"}
+                {field.type === "select" ? (
+                  <select
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    style={s.input}
+                  >
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : field.type === "textarea" ? (
+                  <textarea
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    rows={field.rows ?? 3}
+                    style={{ ...s.input, resize: "vertical" }}
+                  />
+                ) : (
+                  <input
+                    name={field.name}
+                    value={(form as Record<string, string>)[field.name] ?? ""}
+                    onChange={change}
+                    required={field.required}
+                    style={s.input}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+          <div style={s.row}>
+            <button type="submit" style={s.btnPrimary}>
+              Guardar
+            </button>
+            <button type="button" style={s.btnSecondary} onClick={reset}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  page: { padding: "24px", maxWidth: "1100px", margin: "0 auto" },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px",
-  },
-  title: { fontSize: "22px", fontWeight: 600, margin: 0 },
-  subtitle: { fontSize: "16px", fontWeight: 500, marginBottom: "16px" },
-  card: {
-    background: "#fff",
-    borderRadius: "10px",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-    padding: "24px",
-    marginBottom: "20px",
-  },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" },
-  row: { display: "flex", gap: "8px", marginTop: "16px" },
-  label: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    fontSize: "13px",
-    fontWeight: 500,
-  },
-  input: {
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    padding: "7px 10px",
-    fontSize: "14px",
-    fontFamily: "inherit",
-  },
-  btnPrimary: {
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    padding: "8px 16px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  btnSecondary: {
-    background: "#f1f5f9",
-    color: "#333",
-    border: "1px solid #cbd5e1",
-    borderRadius: "6px",
-    padding: "8px 16px",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  btnEdit: {
-    background: "#f59e0b",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "13px",
-    marginRight: "6px",
-  },
-  btnDelete: {
-    background: "#ef4444",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "13px",
-  },
-  activo: {
-    background: "#dcfce7",
-    color: "#166534",
-    borderRadius: "999px",
-    padding: "2px 10px",
-    fontSize: "12px",
-  },
-  inactivo: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    borderRadius: "999px",
-    padding: "2px 10px",
-    fontSize: "12px",
-  },
-};
