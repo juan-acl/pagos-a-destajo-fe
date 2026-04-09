@@ -278,7 +278,7 @@ export default function EmployeeAssignmentPage() {
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>{item.id}</td>
                     <td style={s.td}>{item.metaIndividual}</td>
-                    <td style={s.td}>{getCuadrillaLabel(item.cuadrillaId)}</td>
+                    <td style={s.td}>{getCuadrillaLabel(item.id)}</td>
                     <td style={s.td}>
                       <span
                         style={item.estado === "ACTIVO" ? s.activo : s.inactivo}

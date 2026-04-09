@@ -83,13 +83,11 @@ export function useFilter<T extends Record<string, unknown>>({
   const filteredData = useMemo(() => {
     let result = data;
 
-    /* ── 1. Búsqueda global: busca en TODOS los filterableFields ── */
     if (search.trim()) {
       const term = caseSensitive ? search.trim() : search.trim().toLowerCase();
       const fields =
         filterableFields ?? (Object.keys(data[0] ?? {}) as (keyof T)[]);
 
-      // Excluir campos de exactMatch del search global
       const searchFields = fields.filter((f) => !exactMatchFields.includes(f));
 
       result = result.filter((item) =>
@@ -102,7 +100,6 @@ export function useFilter<T extends Record<string, unknown>>({
       );
     }
 
-    /* ── 2. Filtros por campo específico (selects, dropdowns) ── */
     const filterEntries = Object.entries(activeFilters) as [
       keyof T,
       FilterValue,

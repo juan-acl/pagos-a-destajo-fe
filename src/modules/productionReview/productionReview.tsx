@@ -245,7 +245,7 @@ export default function ProductionReviewPage() {
                   </option>
                   {assignmentsDisponibles.map((assignment) => (
                     <option key={assignment.id} value={assignment.id}>
-                      {`Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId}`}
+                      {`Asignación #${assignment.id} - Meta ${assignment.metaIndividual} - Cuadrilla ${assignment.cuadrillaId.nombre}`}
                     </option>
                   ))}
                 </select>
