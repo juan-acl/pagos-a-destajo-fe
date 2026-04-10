@@ -3,23 +3,24 @@ import { NavLink } from "react-router-dom";
 import {
   Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
   ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
-  Ruler, ClipboardCheck, GitMerge
+  Ruler, ClipboardCheck, GitMerge, ScrollText,
 } from "lucide-react";
 
 const links = [
   { to: "/", label: "Inicio", icon: Home },
-  { to: "/areas", label: "Áreas", icon: Map },
-  { to: "/planillas", label: "Planillas", icon: FileText },
+  { to: "/medidas", label: "Medidas", icon: Ruler },
+  { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ScrollText },
+  { to: "/puestos", label: "Posiciones", icon: Briefcase },
   { to: "/empleados", label: "Empleados", icon: Users },
+  { to: "/areas", label: "Áreas", icon: Map },
   { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
   { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-  { to: "/puestos", label: "Posiciones", icon: Briefcase },
-  { to: "/medidas", label: "Medidas", icon: Ruler },
-  { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
   { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: GitMerge },
   { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
   { to: "/production-review", label: "Revisiones", icon: Search },
+  { to: "/revision-destajo", label: "Revisión Destajo", icon: ClipboardCheck },
   { to: "/production-lot", label: "Lotes", icon: Package },
+  { to: "/planillas", label: "Planillas", icon: FileText },
 ];
 
 const SIDEBAR_FULL = 220;
@@ -78,7 +79,9 @@ export default function AppShell({ children }: PropsWithChildren) {
           }}>
             {(!collapsed || isMobile) && (
               <div>
-                <div><img src="src/assets/logo.png" style={{ filter: "invert(1)", width: "36px" }} /></div>
+                <div>
+                  <img src="src/assets/logo.png" style={{ filter: "invert(1)", width: "36px" }} />
+                </div>
                 <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px", whiteSpace: "nowrap" }}></div>
               </div>
             )}
@@ -103,7 +106,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           <nav style={{ padding: "12px 8px", flex: 1, overflowY: "auto" }}>
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink
-                key={to}
+                key={to + label}
                 to={to}
                 end={to === "/"}
                 onClick={() => isMobile && setMobileOpen(false)}
@@ -208,7 +211,9 @@ export default function AppShell({ children }: PropsWithChildren) {
               background: "#2D6A4F", color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "13px", fontWeight: 700, cursor: "pointer",
-            }}>JL</div>
+            }}>
+              JL
+            </div>
           </div>
         </header>
 

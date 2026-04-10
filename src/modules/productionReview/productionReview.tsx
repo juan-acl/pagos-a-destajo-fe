@@ -1,12 +1,22 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
-import { crudStyles as s } from "@/styles/crudStyles";
+import Badge from "@/components/ui/badge";
+import Modal from "@/components/ui/Modal";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+type CuadrillaRef = {
+  id: number;
+  nombre?: string;
+  codigoCuadrilla?: string | null;
+};
 
-type EstadoRevision = "PENDIENTE_REVISION" | "APROBADO" | "OBSERVADO";
+type EmployeeAssignment = {
+  id: number;
+  metaIndividual: number;
+  estado: string;
+  cuadrillaId: number | CuadrillaRef;
+};
 
 type ProductionReview = {
   id: number;
@@ -15,17 +25,8 @@ type ProductionReview = {
   porcentajeRechazo: number;
   estadoRevision: EstadoRevision;
   observaciones?: string | null;
-  fechaRevision?: string | null;
-  revisadoPor?: string | null;
-  asignacionEmpleadoId: EmployeeAssignment;
-};
-
-type EmployeeAssignment = {
-  id: number;
-  metaIndividual: number;
-  estado: string;
-  cuadrillaId: number;
-  empleadoNombre?: string;
+  fechaRevision: string;
+  asignacionEmpleadoId: number | EmployeeAssignment;
 };
 
 type ReviewForm = {
@@ -71,8 +72,11 @@ function badgeStyle(estado: EstadoRevision): React.CSSProperties {
 
 export default function ProductionReviewPage() {
   const qc = useQueryClient();
-  const [form, setForm] = useState<ReviewForm>(emptyForm);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [form, setForm] = useState<ProductionReviewForm>(empty);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterEstado, setFilterEstado] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   // Queries
@@ -86,24 +90,59 @@ export default function ProductionReviewPage() {
     queryFn: fetchAssignments,
   });
 
-  // Cálculos en tiempo real
-  const recibida = form.cantidadRecibida === "" ? 0 : Number(form.cantidadRecibida);
-  const aprobada = form.cantidadAprobada === "" ? 0 : Number(form.cantidadAprobada);
-  const pctRechazo = recibida > 0 ? calcRechazo(recibida, aprobada) : null;
-  const estadoResultante: EstadoRevision | null = pctRechazo !== null ? estadoDesdeRechazo(pctRechazo) : null;
-  const requiereObservaciones = estadoResultante === "OBSERVADO";
+  const getAssignmentId = (assignment: number | EmployeeAssignment) =>
+    typeof assignment === "number" ? assignment : assignment.id;
 
-  // Validaciones para habilitar el botón
-  const formValido = useMemo(() => {
-    if (recibida <= 0) return false;
-    if (form.cantidadAprobada === "") return false;
-    if (aprobada > recibida) return false;
-    if (requiereObservaciones && form.observaciones.trim() === "") return false;
-    return true;
-  }, [recibida, aprobada, form.cantidadAprobada, requiereObservaciones, form.observaciones]);
+  const getCuadrillaLabelFromAssignment = (assignment: EmployeeAssignment) => {
+    if (typeof assignment.cuadrillaId === "number") {
+      return `Cuadrilla ${assignment.cuadrillaId}`;
+    }
 
-  // Reporte seleccionado
-  const selectedReview = reviews.find(r => r.id === selectedId) ?? null;
+    if (assignment.cuadrillaId.codigoCuadrilla) {
+      return `${assignment.cuadrillaId.nombre ?? "Cuadrilla"} (${assignment.cuadrillaId.codigoCuadrilla})`;
+    }
+
+    return assignment.cuadrillaId.nombre ?? `Cuadrilla ${assignment.cuadrillaId.id}`;
+  };
+
+  const getAssignmentLabel = (assignmentInput: number | EmployeeAssignment) => {
+    const assignmentId = getAssignmentId(assignmentInput);
+    const assignment =
+      typeof assignmentInput === "number"
+        ? assignments.find((item) => item.id === assignmentInput)
+        : assignmentInput;
+
+    if (!assignment) return `Asignación #${assignmentId}`;
+
+    return `Asignación #${assignment.id} · Meta ${assignment.metaIndividual} · ${getCuadrillaLabelFromAssignment(assignment)}`;
+  };
+
+  const assignmentsDisponibles = useMemo(
+    () => assignments.filter((item) => item.estado === "ACTIVO"),
+    [assignments],
+  );
+
+  const filtered = useMemo(
+    () =>
+      reviews.filter((item) => {
+        const texto = `${item.id} ${item.cantidadRecibida} ${item.cantidadAprobada} ${item.observaciones ?? ""} ${getAssignmentLabel(item.asignacionEmpleadoId)} ${item.fechaRevision}`.toLowerCase();
+        const matchSearch = !search || texto.includes(search.toLowerCase());
+        const matchEstado =
+          !filterEstado || item.estadoRevision === filterEstado;
+        return matchSearch && matchEstado;
+      }),
+    [reviews, search, filterEstado, assignments],
+  );
+
+  const aprobadas = reviews.filter(
+    (item) => item.estadoRevision === "APROBADO",
+  ).length;
+  const rechazadas = reviews.filter(
+    (item) => item.estadoRevision === "RECHAZADO",
+  ).length;
+  const pendientes = reviews.filter(
+    (item) => item.estadoRevision === "PENDIENTE",
+  ).length;
 
   const reset = () => {
     setForm(emptyForm);
@@ -130,6 +169,63 @@ export default function ProductionReviewPage() {
     onSuccess: invalidate,
     onError: (error) => setMessage(getErrorMessage(error)),
   });
+
+  const update = useMutation({
+    mutationFn: (payload: ProductionReviewForm) =>
+      api.put(`/production-review/${editId}`, {
+        cantidadRecibida: Number(payload.cantidadRecibida),
+        cantidadAprobada: Number(payload.cantidadAprobada),
+        estadoRevision: payload.estadoRevision,
+        observaciones: payload.observaciones || null,
+        fechaRevision: payload.fechaRevision,
+        asignacionEmpleadoId: Number(payload.asignacionEmpleadoId),
+      }),
+    onSuccess: invalidate,
+    onError: (error) => setMessage(getErrorMessage(error)),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/production-review/${id}`),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["production-review"] });
+      setMessage(null);
+    },
+    onError: (error) => setMessage(getErrorMessage(error)),
+  });
+
+  const edit = (item: ProductionReview) => {
+    setForm({
+      cantidadRecibida: item.cantidadRecibida,
+      cantidadAprobada: item.cantidadAprobada,
+      estadoRevision: item.estadoRevision,
+      observaciones: item.observaciones ?? "",
+      fechaRevision: item.fechaRevision?.slice(0, 10) ?? "",
+      asignacionEmpleadoId: getAssignmentId(item.asignacionEmpleadoId),
+    });
+    setEditId(item.id);
+    setOpen(true);
+    setMessage(null);
+  };
+
+  const change = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]:
+        name === "cantidadRecibida" ||
+        name === "cantidadAprobada" ||
+        name === "asignacionEmpleadoId"
+          ? value === ""
+            ? ""
+            : Number(value)
+          : value,
+    }));
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,259 +262,289 @@ export default function ProductionReviewPage() {
     });
   };
 
-  const getAssignmentLabel = (a: EmployeeAssignment) =>
-    a.empleadoNombre
-      ? `${a.empleadoNombre} — Meta: ${a.metaIndividual}`
-      : `Asignación #${a.id} — Meta: ${a.metaIndividual}`;
-
-  // Indicador general del lote
-  const pendientes = reviews.filter(r => r.estadoRevision === "PENDIENTE_REVISION").length;
-  const aprobadas = reviews.filter(r => r.estadoRevision === "APROBADO").length;
-  const observadas = reviews.filter(r => r.estadoRevision === "OBSERVADO").length;
-  const loteListoParaGenerar = pendientes === 0 && reviews.length > 0;
+  const getRevisionBadgeColor = (estado: string) => {
+    if (estado === "APROBADO") return "green" as const;
+    if (estado === "RECHAZADO") return "red" as const;
+    if (estado === "PENDIENTE") return "amber" as const;
+    return "gray" as const;
+  };
 
   return (
-    <div style={s.page}>
-
-      {/* Header */}
-      <div style={s.header}>
-        <div style={s.titleGroup}>
-          <h1 style={s.title}>Revisión y Aprobación de Producción</h1>
-          <p style={s.description}>Selecciona un reporte en estado PENDIENTE_REVISION para procesarlo</p>
+    <div className="max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 m-0">
+            Revisión de Producción
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Controle cantidades revisadas, resultados y observaciones de producción.
+          </p>
         </div>
+
+        <button
+          onClick={() => {
+            reset();
+            setOpen(true);
+          }}
+          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0"
+        >
+          + Nueva Revisión
+        </button>
       </div>
 
-      {message && <div style={s.error}>{message}</div>}
-
-      {/* Indicador general del lote */}
-      <div style={{
-        ...s.card,
-        borderLeft: `4px solid ${loteListoParaGenerar ? "#16a34a" : "#f59e0b"}`,
-        padding: "16px 24px",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <span style={{ fontWeight: 600, fontSize: "14px", color: loteListoParaGenerar ? "#16a34a" : "#92400e" }}>
-              {loteListoParaGenerar ? "✅ Lote listo para generarse" : `⏳ ${pendientes} revisión(es) pendiente(s) bloquean el lote`}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: "16px", fontSize: "13px" }}>
-            <span style={{ color: "#0369a1" }}>🔵 Pendientes: <strong>{pendientes}</strong></span>
-            <span style={{ color: "#166534" }}>🟢 Aprobadas: <strong>{aprobadas}</strong></span>
-            <span style={{ color: "#854d0e" }}>🟡 Observadas: <strong>{observadas}</strong></span>
-          </div>
+      {message && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {message}
         </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: "Total Revisiones", value: reviews.length, color: "text-gray-900" },
+          { label: "Aprobadas", value: aprobadas, color: "text-[#2D6A4F]" },
+          { label: "Pendientes", value: pendientes, color: "text-amber-600" },
+          { label: "Rechazadas", value: rechazadas, color: "text-red-600" },
+        ].map((stat) => (
+          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {stat.label}
+            </p>
+            <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+          </div>
+        ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: selectedId ? "1fr 1fr" : "1fr", gap: "20px", alignItems: "start" }}>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col lg:flex-row gap-3">
+        <input
+          placeholder="Buscar por revisión, asignación u observaciones..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
+        />
+        <select
+          value={filterEstado}
+          onChange={(e) => setFilterEstado(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
+        >
+          <option value="">Estado: Todos</option>
+          <option value="APROBADO">APROBADO</option>
+          <option value="PENDIENTE">PENDIENTE</option>
+          <option value="RECHAZADO">RECHAZADO</option>
+        </select>
+      </div>
 
-        {/* Lista de reportes */}
-        <div style={s.card}>
-          <h2 style={s.subtitle}>Reportes de producción</h2>
-          <div style={s.tableWrap}>
-            {isLoading ? (
-              <p style={s.empty}>Cargando...</p>
-            ) : reviews.length === 0 ? (
-              <p style={s.empty}>Sin reportes registrados</p>
-            ) : (
-              <table style={s.table}>
-                <thead>
-                  <tr style={s.thead}>
-                    {["Empleado / Asignación", "Reportado", "Estado", "Acción"].map(h => (
-                      <th key={h} style={s.th}>{h}</th>
-                    ))}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <p className="text-center py-12 text-gray-400">Cargando...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center py-12 text-gray-400">Sin resultados</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  {[
+                    "Revisión",
+                    "Cant. Recibida",
+                    "Cant. Aprobada",
+                    "Asignación",
+                    "Estado",
+                    "Fecha",
+                    "Acciones",
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item, index) => (
+                  <tr
+                    key={item.id}
+                    className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                          R{item.id}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            Revisión #{item.id}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {item.observaciones?.trim() || "Sin observaciones"}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      {item.cantidadRecibida}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      {item.cantidadAprobada}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={getAssignmentLabel(item.asignacionEmpleadoId)}
+                        color="blue"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={item.estadoRevision}
+                        color={getRevisionBadgeColor(item.estadoRevision)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {item.fechaRevision?.slice(0, 10) || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => edit(item)}
+                          className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
+                          title="Editar"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => remove.mutate(item.id)}
+                          className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {reviews.map(item => {
-                    const esPendiente = item.estadoRevision === "PENDIENTE_REVISION";
-                    const isSelected = selectedId === item.id;
-                    return (
-                      <tr
-                        key={item.id}
-                        style={{
-                          ...s.tr,
-                          background: isSelected ? "rgba(45,106,79,0.06)" : undefined,
-                        }}
-                      >
-                        <td style={s.td}>
-                          {getAssignmentLabel(item.asignacionEmpleadoId)}
-                        </td>
-                        <td style={s.td}>{item.cantidadRecibida ?? "—"}</td>
-                        <td style={s.td}>
-                          <span style={badgeStyle(item.estadoRevision)}>
-                            {item.estadoRevision}
-                          </span>
-                        </td>
-                        <td style={{ ...s.td, ...s.actionCell }}>
-                          {esPendiente ? (
-                          <button
-                            style={{
-                            ...s.btnPrimary,
-                              padding: "5px 12px",
-                              fontSize: "13px",
-                              background: isSelected ? "#15803d" : undefined,
-                            }}
-                            onClick={() => {
-                              setSelectedId(isSelected ? null : item.id);
-                              setForm(emptyForm);
-                              setMessage(null);
-                            }}
-                              >
-                                {isSelected ? "Cerrar" : "Revisar"}
-                              </button>
-                          ) : item.estadoRevision === "APROBADO" ? (
-                              <span style={{ fontSize: "12px", color: "#166534" }}>✓ Aprobado</span>
-                          ) : item.estadoRevision === "OBSERVADO" ? (
-                              <span style={{ fontSize: "12px", color: "#854d0e" }}>⚠ Observado</span>
-                          ) : (
-                              <span style={{ fontSize: "12px", color: "#9CA3AF" }}>Procesado</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        {/* Panel de revisión */}
-        {selectedReview && (
-          <div style={{ ...s.card, position: "sticky", top: "80px" }}>
-            <h2 style={s.subtitle}>Procesar revisión</h2>
-            <div style={{ ...s.info, marginBottom: "16px" }}>
-              <strong>Asignación:</strong> {getAssignmentLabel(selectedReview.asignacionEmpleadoId)}<br />
-              <strong>Cantidad reportada:</strong> {selectedReview.asignacionEmpleadoId.metaIndividual} unidades
-            </div>
-
-            <form onSubmit={submit}>
-              <div style={s.grid}>
-
-                <label style={s.label}>
-                  Cantidad recibida *
-                  <input
-                    name="cantidadRecibida"
-                    type="number"
-                    min={1}
-                    value={form.cantidadRecibida}
-                    onChange={e => setForm(p => ({ ...p, cantidadRecibida: e.target.value === "" ? "" : Number(e.target.value) }))}
-                    required
-                    style={s.input}
-                  />
-                </label>
-
-                <label style={s.label}>
-                  Cantidad aprobada *
-                  <input
-                    name="cantidadAprobada"
-                    type="number"
-                    min={0}
-                    value={form.cantidadAprobada}
-                    onChange={e => setForm(p => ({ ...p, cantidadAprobada: e.target.value === "" ? "" : Number(e.target.value) }))}
-                    required
-                    style={{
-                      ...s.input,
-                      borderColor: aprobada > recibida ? "#ef4444" : undefined,
-                    }}
-                  />
-                  {aprobada > recibida && recibida > 0 && (
-                    <span style={{ color: "#ef4444", fontSize: "12px" }}>No puede ser mayor a la cantidad recibida</span>
-                  )}
-                </label>
-              </div>
-
-              {/* Indicador visual en tiempo real */}
-              {pctRechazo !== null && recibida > 0 && (
-                <div style={{
-                  margin: "16px 0",
-                  padding: "14px 16px",
-                  borderRadius: "10px",
-                  background: estadoResultante === "APROBADO" ? "#f0fdf4" : "#fefce8",
-                  border: `1px solid ${estadoResultante === "APROBADO" ? "#86efac" : "#fde047"}`,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: "#374151" }}>Porcentaje de rechazo</span>
-                    <span style={{
-                      fontSize: "20px",
-                      fontWeight: 700,
-                      color: estadoResultante === "APROBADO" ? "#16a34a" : "#d97706",
-                    }}>
-                      {pctRechazo.toFixed(2)}%
-                    </span>
-                  </div>
-
-                  {/* Barra de progreso */}
-                  <div style={{ background: "#e5e7eb", borderRadius: "999px", height: "8px", overflow: "hidden", marginBottom: "10px" }}>
-                    <div style={{
-                      width: `${Math.min(pctRechazo, 100)}%`,
-                      height: "100%",
-                      background: estadoResultante === "APROBADO" ? "#16a34a" : "#f59e0b",
-                      borderRadius: "999px",
-                      transition: "width 0.3s ease",
-                    }} />
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "12px", color: "#6B7280" }}>
-                      Límite: 20% | Rechazadas: {recibida - aprobada} unidades
-                    </span>
-                    <span style={badgeStyle(estadoResultante!)}>
-                      → {estadoResultante}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Observaciones — aparece solo si es OBSERVADA */}
-              {requiereObservaciones && (
-                <label style={{ ...s.label, marginTop: "12px" }}>
-                  Observaciones * <span style={{ color: "#ef4444", fontSize: "12px" }}>(obligatorio cuando el rechazo supera el 20%)</span>
-                  <textarea
-                    name="observaciones"
-                    value={form.observaciones}
-                    onChange={e => setForm(p => ({ ...p, observaciones: e.target.value }))}
-                    required
-                    placeholder="Describe el motivo del rechazo o las observaciones de calidad..."
-                    style={{ ...s.input, minHeight: 100, resize: "vertical", marginTop: "4px" }}
-                  />
-                </label>
-              )}
-
-              {!requiereObservaciones && pctRechazo !== null && (
-                <label style={{ ...s.label, marginTop: "12px" }}>
-                  Observaciones (opcional)
-                  <textarea
-                    name="observaciones"
-                    value={form.observaciones}
-                    onChange={e => setForm(p => ({ ...p, observaciones: e.target.value }))}
-                    placeholder="Observaciones adicionales..."
-                    style={{ ...s.input, minHeight: 80, resize: "vertical", marginTop: "4px" }}
-                  />
-                </label>
-              )}
-
-              <div style={s.row}>
-                <button
-                  type="submit"
-                  style={{
-                    ...s.btnPrimary,
-                    opacity: formValido ? 1 : 0.5,
-                    cursor: formValido ? "pointer" : "not-allowed",
-                  }}
-                  disabled={!formValido || revisar.isPending}
-                >
-                  {revisar.isPending ? "Procesando..." : "Confirmar revisión"}
-                </button>
-                <button type="button" style={s.btnSecondary} onClick={reset}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+        {filtered.length > 0 && (
+          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
+            Mostrando {filtered.length} de {reviews.length} revisiones
+          </p>
+        )}
       </div>
+
+      <Modal
+        open={open}
+        title={editId ? "Editar Revisión" : "Nueva Revisión"}
+        subtitle="Complete la información para registrar la revisión de producción."
+        onClose={reset}
+        width={720}
+      >
+        <form onSubmit={submit}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Cantidad Recibida *
+              <input
+                name="cantidadRecibida"
+                type="number"
+                value={form.cantidadRecibida}
+                onChange={change}
+                required
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Cantidad Aprobada *
+              <input
+                name="cantidadAprobada"
+                type="number"
+                value={form.cantidadAprobada}
+                onChange={change}
+                required
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
+              Asignación de Empleado *
+              <select
+                name="asignacionEmpleadoId"
+                value={form.asignacionEmpleadoId}
+                onChange={change}
+                required
+                disabled={loadingAssignments}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
+              >
+                <option value="">
+                  {loadingAssignments
+                    ? "Cargando asignaciones..."
+                    : "Selecciona una asignación"}
+                </option>
+                {assignmentsDisponibles.map((assignment) => (
+                  <option key={assignment.id} value={assignment.id}>
+                    {getAssignmentLabel(assignment)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Estado Revisión
+              <select
+                name="estadoRevision"
+                value={form.estadoRevision}
+                onChange={change}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
+              >
+                <option value="APROBADO">APROBADO</option>
+                <option value="RECHAZADO">RECHAZADO</option>
+                <option value="PENDIENTE">PENDIENTE</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Fecha Revisión *
+              <input
+                name="fechaRevision"
+                type="date"
+                value={form.fechaRevision}
+                onChange={change}
+                required
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
+              Observaciones
+              <textarea
+                name="observaciones"
+                value={form.observaciones}
+                onChange={change}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal min-h-[110px] resize-y"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={reset}
+              className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={create.isPending || update.isPending}
+              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50"
+            >
+              {editId ? "Actualizar" : "Guardar Revisión"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
