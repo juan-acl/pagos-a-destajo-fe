@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
-import { crudStyles as s } from "@/styles/crudStyles";
+import Badge from "@/components/ui/badge";
+import Modal from "@/components/ui/Modal";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 
 type EmployeeAssignment = {
@@ -48,6 +49,9 @@ export default function EmployeeAssignmentPage() {
   const [form, setForm] = useState<EmployeeAssignmentForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterCuadrilla, setFilterCuadrilla] = useState("");
+  const [filterEstado, setFilterEstado] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const { data: assignments = [], isLoading } = useQuery({
@@ -65,14 +69,33 @@ export default function EmployeeAssignmentPage() {
     [cuadrillas],
   );
 
+  const getCuadrilla = (cuadrillaId: number) =>
+    cuadrillas.find((item) => item.id === cuadrillaId);
+
   const getCuadrillaLabel = (cuadrillaId: number) => {
-    const cuadrilla = cuadrillas.find((item) => item.id === cuadrillaId);
+    const cuadrilla = getCuadrilla(cuadrillaId);
     if (!cuadrilla) return `ID ${cuadrillaId}`;
 
     return cuadrilla.codigoCuadrilla
       ? `${cuadrilla.nombre} (${cuadrilla.codigoCuadrilla})`
       : cuadrilla.nombre;
   };
+
+  const filtered = useMemo(
+    () =>
+      assignments.filter((item) => {
+        const texto = `${item.id} ${item.metaIndividual} ${getCuadrillaLabel(item.cuadrillaId)}`.toLowerCase();
+        const matchSearch = !search || texto.includes(search.toLowerCase());
+        const matchCuadrilla =
+          !filterCuadrilla || String(item.cuadrillaId) === filterCuadrilla;
+        const matchEstado = !filterEstado || item.estado === filterEstado;
+        return matchSearch && matchCuadrilla && matchEstado;
+      }),
+    [assignments, search, filterCuadrilla, filterEstado, cuadrillas],
+  );
+
+  const activas = assignments.filter((item) => item.estado === "ACTIVO").length;
+  const inactivas = assignments.filter((item) => item.estado === "INACTIVO").length;
 
   const reset = () => {
     setForm(empty);
@@ -161,149 +184,272 @@ export default function EmployeeAssignmentPage() {
   };
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
-        <div style={s.titleGroup}>
-          <h1 style={s.title}>Asignación de empleado</h1>
+    <div className="max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 m-0">
+            Asignación de Empleado
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Configure metas individuales por cuadrilla y controle su estado.
+          </p>
         </div>
         <button
-          style={s.btnPrimary}
           onClick={() => {
             reset();
             setOpen(true);
           }}
+          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0"
         >
-          + Nueva asignación
+          + Nueva Asignación
         </button>
       </div>
 
-      {message && <div style={s.error}>{message}</div>}
-
-      {open && (
-        <div style={s.card}>
-          <h2 style={s.subtitle}>{editId ? "Editar" : "Nueva"} asignación</h2>
-
-          <form onSubmit={submit}>
-            <div style={s.grid}>
-              <label style={s.label}>
-                Meta individual *
-                <input
-                  name="metaIndividual"
-                  type="number"
-                  value={form.metaIndividual}
-                  onChange={change}
-                  required
-                  style={s.input}
-                />
-              </label>
-
-              <label style={s.label}>
-                Cuadrilla *
-                <select
-                  name="cuadrillaId"
-                  value={form.cuadrillaId}
-                  onChange={change}
-                  required
-                  style={s.input}
-                  disabled={loadingCuadrillas}
-                >
-                  <option value="">
-                    {loadingCuadrillas
-                      ? "Cargando cuadrillas..."
-                      : "Selecciona una cuadrilla"}
-                  </option>
-                  {cuadrillasDisponibles.map((cuadrilla) => (
-                    <option key={cuadrilla.id} value={cuadrilla.id}>
-                      {cuadrilla.codigoCuadrilla
-                        ? `${cuadrilla.nombre} - ${cuadrilla.codigoCuadrilla} (ID ${cuadrilla.id})`
-                        : `${cuadrilla.nombre} (ID ${cuadrilla.id})`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={s.label}>
-                Estado
-                <select
-                  name="estado"
-                  value={form.estado}
-                  onChange={change}
-                  style={s.input}
-                >
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
-                </select>
-              </label>
-            </div>
-
-            <div style={s.row}>
-              <button type="submit" style={s.btnPrimary}>
-                {create.isPending || update.isPending
-                  ? "Guardando..."
-                  : "Guardar"}
-              </button>
-              <button type="button" style={s.btnSecondary} onClick={reset}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+      {message && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {message}
         </div>
       )}
 
-      <div style={s.card}>
-        <div style={s.tableWrap}>
-          {isLoading ? (
-            <p style={s.empty}>Cargando...</p>
-          ) : assignments.length === 0 ? (
-            <p style={s.empty}>Sin registros</p>
-          ) : (
-            <table style={s.table}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {[
+          {
+            label: "Total Asignaciones",
+            value: assignments.length,
+            color: "text-gray-900",
+          },
+          { label: "Activas", value: activas, color: "text-[#2D6A4F]" },
+          { label: "Inactivas", value: inactivas, color: "text-red-600" },
+          {
+            label: "Cuadrillas",
+            value: cuadrillasDisponibles.length,
+            color: "text-gray-900",
+          },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="bg-white rounded-xl border border-gray-200 p-5"
+          >
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {stat.label}
+            </p>
+            <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col lg:flex-row gap-3">
+        <input
+          placeholder="Buscar por asignación, meta o cuadrilla..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
+        />
+        <select
+          value={filterCuadrilla}
+          onChange={(e) => setFilterCuadrilla(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
+        >
+          <option value="">Cuadrilla: Todas</option>
+          {cuadrillas.map((cuadrilla) => (
+            <option key={cuadrilla.id} value={cuadrilla.id}>
+              {getCuadrillaLabel(cuadrilla.id)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterEstado}
+          onChange={(e) => setFilterEstado(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
+        >
+          <option value="">Estado: Todos</option>
+          <option value="ACTIVO">ACTIVO</option>
+          <option value="INACTIVO">INACTIVO</option>
+        </select>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <p className="text-center py-12 text-gray-400">Cargando...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center py-12 text-gray-400">Sin resultados</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
               <thead>
-                <tr style={s.thead}>
+                <tr className="bg-gray-50">
                   {[
-                    "ID",
-                    "Meta individual",
+                    "Asignación",
+                    "Meta Individual",
                     "Cuadrilla",
                     "Estado",
                     "Acciones",
-                  ].map((h) => (
-                    <th key={h} style={s.th}>
-                      {h}
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                    >
+                      {header}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {assignments.map((item) => (
-                  <tr key={item.id} style={s.tr}>
-                    <td style={s.td}>{item.id}</td>
-                    <td style={s.td}>{item.metaIndividual}</td>
-                    <td style={s.td}>{getCuadrillaLabel(item.id)}</td>
-                    <td style={s.td}>
-                      <span
-                        style={item.estado === "ACTIVO" ? s.activo : s.inactivo}
-                      >
-                        {item.estado}
-                      </span>
-                    </td>
-                    <td style={{ ...s.td, ...s.actionCell }}>
-                      <button style={s.btnEdit} onClick={() => edit(item)}>
-                        Editar
-                      </button>
-                      <button
-                        style={s.btnDelete}
-                        onClick={() => remove.mutate(item.id)}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((item, index) => {
+                  const cuadrilla = getCuadrilla(item.cuadrillaId);
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                            A{item.id}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              Asignación #{item.id}
+                            </p>
+                            <p className="text-xs text-gray-400 font-mono">
+                              {cuadrilla?.codigoCuadrilla ?? "Sin código"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-gray-900">
+                          {item.metaIndividual}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {cuadrilla ? (
+                          <Badge label={getCuadrillaLabel(item.cuadrillaId)} color="amber" />
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            ID: {item.cuadrillaId}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          label={item.estado}
+                          color={item.estado === "ACTIVO" ? "green" : "gray"}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => edit(item)}
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => remove.mutate(item.id)}
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
+                            title="Eliminar"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
+        {filtered.length > 0 && (
+          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
+            Mostrando {filtered.length} de {assignments.length} asignaciones
+          </p>
+        )}
       </div>
+
+      <Modal
+        open={open}
+        title={editId ? "Editar Asignación" : "Nueva Asignación"}
+        subtitle="Complete la información para registrar la asignación del empleado."
+        onClose={reset}
+      >
+        <form onSubmit={submit}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Meta Individual *
+              <input
+                name="metaIndividual"
+                type="number"
+                placeholder="Ej. 120"
+                value={form.metaIndividual}
+                onChange={change}
+                required
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Cuadrilla *
+              <select
+                name="cuadrillaId"
+                value={form.cuadrillaId}
+                onChange={change}
+                required
+                disabled={loadingCuadrillas}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
+              >
+                <option value="">
+                  {loadingCuadrillas
+                    ? "Cargando cuadrillas..."
+                    : "Selecciona una cuadrilla"}
+                </option>
+                {cuadrillasDisponibles.map((cuadrilla) => (
+                  <option key={cuadrilla.id} value={cuadrilla.id}>
+                    {getCuadrillaLabel(cuadrilla.id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
+              Estado
+              <div className="flex gap-4 mt-1">
+                {["ACTIVO", "INACTIVO"].map((estado) => (
+                  <label
+                    key={estado}
+                    className="flex items-center gap-2 cursor-pointer text-sm font-normal normal-case tracking-normal text-gray-700"
+                  >
+                    <input
+                      type="radio"
+                      name="estado"
+                      value={estado}
+                      checked={form.estado === estado}
+                      onChange={change}
+                    />
+                    {estado.charAt(0) + estado.slice(1).toLowerCase()}
+                  </label>
+                ))}
+              </div>
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={reset}
+              className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={create.isPending || update.isPending}
+              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50"
+            >
+              {editId ? "Actualizar" : "Guardar Asignación"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
