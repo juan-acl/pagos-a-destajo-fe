@@ -1,22 +1,12 @@
 import { useState, useEffect, type PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
-  ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft
+  ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
+  LayoutDashboard
 } from "lucide-react";
-
-const links = [
-  { to: "/", label: "Inicio", icon: Home },
-  { to: "/areas", label: "Áreas", icon: Map },
-  { to: "/planillas", label: "Planillas", icon: FileText },
-  { to: "/empleados", label: "Empleados", icon: Users },
-  { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
-  { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-  { to: "/puestos", label: "Posiciones", icon: Briefcase },
-  { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
-  { to: "/production-review", label: "Revisiones", icon: Search },
-  { to: "/production-lot", label: "Lotes", icon: Package },
-];
+import { useAuthStore, isAdmin } from "@/store/authStore";
+import logo from "@/assets/logo.png";
 
 const SIDEBAR_FULL = 220;
 const SIDEBAR_MINI = 64;
@@ -26,6 +16,8 @@ export default function AppShell({ children }: PropsWithChildren) {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAK);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout, empleado } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,22 +32,46 @@ export default function AppShell({ children }: PropsWithChildren) {
   const sidebarWidth = isMobile ? 0 : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL;
   const showSidebar = isMobile ? mobileOpen : true;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const initiales = empleado
+    ? `${empleado.primerNombre[0]}${empleado.primerApellido[0]}`
+    : "??";
+
+  const adminLinks = [
+    { to: "/", label: "Inicio", icon: Home },
+    { to: "/areas", label: "Áreas", icon: Map },
+    { to: "/planillas", label: "Planillas", icon: FileText },
+    { to: "/empleados", label: "Empleados", icon: Users },
+    { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
+    { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
+    { to: "/puestos", label: "Posiciones", icon: Briefcase },
+    { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
+    { to: "/production-review", label: "Revisiones", icon: Search },
+    { to: "/production-lot", label: "Lotes", icon: Package },
+  ];
+
+  const operarioLinks = [
+    { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
+  ];
+
+  const links = isAdmin(empleado?.pstPuesto) ? adminLinks : operarioLinks;
+
+  const footerLinks = [
+    { icon: Settings, label: "Settings", action: () => {} },
+    { icon: LogOut, label: "Logout", action: handleLogout },
+  ];
+
   return (
     <div style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}>
 
-      {/* Mobile overlay */}
       {isMobile && mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          style={{
-            position: "fixed", inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 150,
-          }}
-        />
+        <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 150 }} />
       )}
 
-      {/* Sidebar */}
       {showSidebar && (
         <aside style={{
           width: isMobile ? SIDEBAR_FULL : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL,
@@ -70,6 +86,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           transition: "width 0.2s ease",
           overflow: "hidden",
         }}>
+
           {/* Logo */}
           <div style={{
             padding: "20px 16px",
@@ -80,31 +97,18 @@ export default function AppShell({ children }: PropsWithChildren) {
             minHeight: "64px",
           }}>
             {(!collapsed || isMobile) && (
-              <div>
-                <div><img 
-              src="src/assets/logo.png"  
-              style={{ filter: "invert(1)", width: "36px" }} 
-            /> </div>
-            <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px", whiteSpace: "nowrap" }}></div>
-              </div>
+              <img src={logo} style={{ filter: "invert(1)", width: "36px" }} alt="logo" />
             )}
             {!isMobile && (
               <button
                 onClick={() => setCollapsed(p => !p)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "#6B7280", padding: "4px", borderRadius: "6px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <ChevronLeft size={18} style={{ transform: collapsed ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
               </button>
             )}
             {isMobile && (
-              <button
-                onClick={() => setMobileOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px" }}
-              >
+              <button onClick={() => setMobileOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px" }}>
                 <X size={20} />
               </button>
             )}
@@ -112,52 +116,53 @@ export default function AppShell({ children }: PropsWithChildren) {
 
           {/* Nav */}
           <nav style={{ padding: "12px 8px", flex: 1, overflowY: "auto" }}>
-{links.map(({ to, label, icon: Icon }) => (
-  <NavLink
-    key={to}
-    to={to}
-    end={to === "/"}
-    onClick={() => isMobile && setMobileOpen(false)}
-    title={collapsed && !isMobile ? label : undefined}
-    style={({ isActive }) => ({
-      display: "flex",
-      alignItems: "center",
-      gap: collapsed && !isMobile ? 0 : "10px",
-      justifyContent: collapsed && !isMobile ? "center" : "flex-start",
-      padding: collapsed && !isMobile ? "10px" : "9px 12px",
-      borderRadius: "8px",
-      textDecoration: "none",
-      fontSize: "14px",
-      fontWeight: isActive ? 600 : 400,
-      color: isActive ? "#2D6A4F" : "#6B7280",
-      background: isActive ? "rgba(45,106,79,0.08)" : "transparent",
-      marginBottom: "2px",
-      transition: "all 0.15s",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-    })}
-  >
-    {({ isActive }) => (
-      <>
-        <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
-        {(!collapsed || isMobile) && <span>{label}</span>}
-      </>
-    )}
-  </NavLink>
-))}
+            {links.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/"}
+                onClick={() => isMobile && setMobileOpen(false)}
+                title={collapsed && !isMobile ? label : undefined}
+                style={({ isActive }) => ({
+                  display: "flex",
+                  alignItems: "center",
+                  gap: collapsed && !isMobile ? 0 : "10px",
+                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+                  padding: collapsed && !isMobile ? "10px" : "9px 12px",
+                  borderRadius: "8px",
+                  textDecoration: "none",
+                  fontSize: "14px",
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? "#2D6A4F" : "#6B7280",
+                  background: isActive ? "rgba(45,106,79,0.08)" : "transparent",
+                  marginBottom: "2px",
+                  transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                })}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
+                    {(!collapsed || isMobile) && <span>{label}</span>}
+                  </>
+                )}
+              </NavLink>
+            ))}
           </nav>
 
           {/* Footer */}
-          <div style={{
-            padding: "12px 8px",
-            borderTop: "1px solid #E2E8F0",
-          }}>
-            {[
-              { icon: Settings, label: "Settings" },
-              { icon: LogOut, label: "Logout" },
-            ].map(({ icon: Icon, label }) => (
+          <div style={{ padding: "12px 8px", borderTop: "1px solid #E2E8F0" }}>
+            {(!collapsed || isMobile) && empleado && (
+              <div style={{ padding: "10px 12px", marginBottom: "8px", background: "#F8F9FA", borderRadius: "8px", fontSize: "12px" }}>
+                <p style={{ fontWeight: 600, color: "#1A202C", margin: 0 }}>{empleado.primerNombre} {empleado.primerApellido}</p>
+                <p style={{ color: "#9CA3AF", margin: "2px 0 0", fontSize: "11px" }}>{empleado.email}</p>
+              </div>
+            )}
+            {footerLinks.map(({ icon: Icon, label, action }) => (
               <button
                 key={label}
+                onClick={action}
                 title={collapsed && !isMobile ? label : undefined}
                 style={{
                   display: "flex",
@@ -171,7 +176,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                   background: "none",
                   cursor: "pointer",
                   fontSize: "14px",
-                  color: "#6B7280",
+                  color: label === "Logout" ? "#DC3545" : "#6B7280",
                   marginBottom: "2px",
                 }}
               >
@@ -207,25 +212,30 @@ export default function AppShell({ children }: PropsWithChildren) {
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {isMobile && (
-              <button
-                onClick={() => setMobileOpen(true)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", display: "flex" }}
-              >
+              <button onClick={() => setMobileOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", display: "flex" }}>
                 <Menu size={22} />
               </button>
             )}
             <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>Pago a destajo</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <button style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", display: "flex" }}>
-              <Search size={18} />
-            </button>
-            <div style={{
-              width: "32px", height: "32px", borderRadius: "50%",
-              background: "#2D6A4F", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "13px", fontWeight: 700, cursor: "pointer",
-            }}>JL</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {empleado && (
+              <span style={{ fontSize: "13px", color: "#6B7280" }}>
+                {empleado.primerNombre} {empleado.primerApellido}
+              </span>
+            )}
+            <div
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              style={{
+                width: "32px", height: "32px", borderRadius: "50%",
+                background: "#2D6A4F", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              {initiales}
+            </div>
           </div>
         </header>
 
