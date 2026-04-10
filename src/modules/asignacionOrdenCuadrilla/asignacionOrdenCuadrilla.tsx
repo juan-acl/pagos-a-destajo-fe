@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import { crudStyles as s } from "@/styles/crudStyles";
 
-type OrdenTrabajo = { id: number; numeroOrden: string; };
+type OrdenTrabajo = { id: number; numeroOrden: string; cantidadRequerida: number; };
 type Cuadrilla = { id: number; nombre: string; };
 
 type AsignacionOrdenCuadrilla = {
@@ -38,14 +38,41 @@ export default function AsignacionOrdenCuadrilla() {
     const remove = useMutation({ mutationFn: (id: number) => api.delete(`/asignaciones-orden-cuadrilla/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["asignaciones-orden-cuadrilla"] }) });
 
     const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
+
     const edit = (a: AsignacionOrdenCuadrilla) => {
-        setForm({ ordenTrabajoId: a.ordenTrabajoId, cuadrillaId: a.cuadrillaId, cantidadAsignada: a.cantidadAsignada, estado: a.estado });
-        setEditId(a.id); setOpen(true);
+        // Al editar, buscamos la orden correspondiente para rellenar cantidadAsignada
+        const orden = ordenes.find(o => o.id === a.ordenTrabajoId);
+        setForm({
+            ordenTrabajoId: a.ordenTrabajoId,
+            cuadrillaId: a.cuadrillaId,
+            cantidadAsignada: orden?.cantidadRequerida ?? a.cantidadAsignada,
+            estado: a.estado
+        });
+        setEditId(a.id);
+        setOpen(true);
     };
+
     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setForm(p => ({ ...p, [name]: name === "cantidadAsignada" || name === "ordenTrabajoId" || name === "cuadrillaId" ? Number(value) : value }));
+
+        if (name === "ordenTrabajoId") {
+            const ordenId = Number(value);
+            // Al cambiar la orden, buscamos su cantidadRequerida y la ponemos en cantidadAsignada
+            const orden = ordenes.find(o => o.id === ordenId);
+            setForm(p => ({
+                ...p,
+                ordenTrabajoId: ordenId,
+                cantidadAsignada: orden?.cantidadRequerida ?? 0,
+            }));
+            return;
+        }
+
+        setForm(p => ({
+            ...p,
+            [name]: name === "cuadrillaId" ? Number(value) : value
+        }));
     };
+
     const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
     const getOrdenNumero = (id: number) => ordenes.find(o => o.id === id)?.numeroOrden ?? "-";
     const getCuadrillaName = (id: number) => cuadrillas.find(c => c.id === id)?.nombre ?? "-";
@@ -69,7 +96,7 @@ export default function AsignacionOrdenCuadrilla() {
                                 Orden de trabajo *
                                 <select name="ordenTrabajoId" value={form.ordenTrabajoId} onChange={change} required style={s.input}>
                                     <option value={0}>Seleccionar orden</option>
-                                    {ordenes.map(o => <option key={o.id} value={o.id}>{o.numeroOrden}</option>)}
+                                    {ordenes.map(o => <option key={o.id} value={o.id}>Orden - {o.numeroOrden}</option>)}
                                 </select>
                             </label>
                             <label style={s.label}>
@@ -80,8 +107,14 @@ export default function AsignacionOrdenCuadrilla() {
                                 </select>
                             </label>
                             <label style={s.label}>
-                                Cantidad asignada *
-                                <input name="cantidadAsignada" type="number" value={form.cantidadAsignada} onChange={change} required min={1} style={s.input} />
+                                Cantidad asignada
+                                <input
+                                    name="cantidadAsignada"
+                                    type="number"
+                                    value={form.cantidadAsignada}
+                                    readOnly
+                                    style={{ ...s.input, backgroundColor: "#f0f0f0", cursor: "not-allowed" }}
+                                />
                             </label>
                             <label style={s.label}>
                                 Estado

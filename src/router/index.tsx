@@ -19,6 +19,9 @@ const EmployeeAssignment = lazy(
 const ProductionReview = lazy(
   () => import("@/modules/productionReview/productionReview"),
 );
+const RevisionDestajo = lazy(
+  () => import("@/modules/revisionDestajo/revisionDestajo"),
+);
 const ProductionLot = lazy(
   () => import("@/modules/productionLot/productionLot"),
 );
@@ -47,6 +50,7 @@ export default function Router() {
               element={<EmployeeAssignment />}
             />
             <Route path="/production-review" element={<ProductionReview />} />
+            <Route path="/revision-destajo" element={<RevisionDestajo />} />
             <Route path="/production-lot" element={<ProductionLot />} />
             <Route path="/areas" element={<Area />} />
             <Route path="/planillas" element={<Planilla />} />
