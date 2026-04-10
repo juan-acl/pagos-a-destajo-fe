@@ -15,7 +15,7 @@ type EmployeeAssignment = {
   id: number;
   metaIndividual: number;
   estado: string;
-  cuadrillaId: number | CuadrillaRef;
+  cuadrillaId: number | CuadrillaRef | null;
 };
 
 type ProductionReview = {
@@ -79,6 +79,10 @@ export default function ProductionReviewPage() {
     typeof assignment === "number" ? assignment : assignment.id;
 
   const getCuadrillaLabelFromAssignment = (assignment: EmployeeAssignment) => {
+    if (assignment.cuadrillaId == null) {
+      return "Sin cuadrilla";
+    }
+
     if (typeof assignment.cuadrillaId === "number") {
       return `Cuadrilla ${assignment.cuadrillaId}`;
     }

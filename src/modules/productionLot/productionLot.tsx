@@ -5,13 +5,19 @@ import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 
+type ProductionReviewRef = {
+  id: number;
+  estadoRevision?: string;
+  cantidadAprobada?: number;
+};
+
 type ProductionLot = {
   id: number;
   numeroLote: string;
   totalPiezasAprobadas: number;
   fechaEnvio: string;
   estado: string;
-  revisionProduccionId?: number | null;
+  revisionProduccionId?: number | ProductionReviewRef | null;
 };
 
 type ProductionLotForm = {
@@ -30,9 +36,14 @@ const empty: ProductionLotForm = {
   revisionProduccionId: "",
 };
 
-const fetcher = () =>
+const fetchLots = () =>
   api
     .get<ApiEnvelope<ProductionLot[]>>("/production-lot")
+    .then((response) => response.data.data);
+
+const fetchReviews = () =>
+  api
+    .get<ApiEnvelope<ProductionReviewRef[]>>("/production-review")
     .then((response) => response.data.data);
 
 export default function ProductionLotPage() {
@@ -44,25 +55,64 @@ export default function ProductionLotPage() {
   const [filterEstado, setFilterEstado] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
-  const { data = [], isLoading } = useQuery({
+  const { data: data = [], isLoading } = useQuery({
     queryKey: ["production-lot"],
-    queryFn: fetcher,
+    queryFn: fetchLots,
   });
+
+  const { data: reviews = [], isLoading: loadingReviews } = useQuery({
+    queryKey: ["production-review"],
+    queryFn: fetchReviews,
+  });
+
+  const getReviewId = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    if (review == null) return null;
+    return typeof review === "number" ? review : review.id;
+  };
+
+  const getReview = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    if (review == null) return null;
+    if (typeof review !== "number") return review;
+    return reviews.find((item) => item.id === review) ?? null;
+  };
+
+  const getReviewLabel = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    const reviewData = getReview(review);
+    const reviewId = getReviewId(review);
+
+    if (!reviewData) return reviewId ? `Revisión #${reviewId}` : "Sin revisión";
+
+    return `Revisión #${reviewData.id}${
+      reviewData.estadoRevision ? ` · ${reviewData.estadoRevision}` : ""
+    }${
+      reviewData.cantidadAprobada !== undefined
+        ? ` · Aprobadas ${reviewData.cantidadAprobada}`
+        : ""
+    }`;
+  };
+
+  const reviewsDisponibles = useMemo(() => reviews, [reviews]);
 
   const filtered = useMemo(
     () =>
       data.filter((item) => {
-        const texto = `${item.id} ${item.numeroLote} ${item.totalPiezasAprobadas} ${item.revisionProduccionId ?? ""} ${item.fechaEnvio}`.toLowerCase();
+        const texto = `${item.id} ${item.numeroLote} ${item.totalPiezasAprobadas} ${getReviewLabel(item.revisionProduccionId)} ${item.fechaEnvio}`.toLowerCase();
         const matchSearch = !search || texto.includes(search.toLowerCase());
         const matchEstado = !filterEstado || item.estado === filterEstado;
         return matchSearch && matchEstado;
       }),
-    [data, search, filterEstado],
+    [data, search, filterEstado, reviews],
   );
 
   const activos = data.filter((item) => item.estado === "ACTIVO").length;
   const inactivos = data.filter((item) => item.estado === "INACTIVO").length;
-  const vinculados = data.filter((item) => item.revisionProduccionId != null).length;
+  const vinculados = data.filter((item) => getReviewId(item.revisionProduccionId) != null).length;
 
   const reset = () => {
     setForm(empty);
@@ -123,7 +173,7 @@ export default function ProductionLotPage() {
       totalPiezasAprobadas: item.totalPiezasAprobadas,
       fechaEnvio: item.fechaEnvio?.slice(0, 10) ?? "",
       estado: item.estado,
-      revisionProduccionId: item.revisionProduccionId ?? "",
+      revisionProduccionId: getReviewId(item.revisionProduccionId) ?? "",
     });
     setEditId(item.id);
     setOpen(true);
@@ -278,9 +328,9 @@ export default function ProductionLotPage() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      {item.revisionProduccionId ? (
+                      {getReviewId(item.revisionProduccionId) ? (
                         <Badge
-                          label={`Revisión #${item.revisionProduccionId}`}
+                          label={getReviewLabel(item.revisionProduccionId)}
                           color="blue"
                         />
                       ) : (
@@ -361,15 +411,23 @@ export default function ProductionLotPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Revisión Producción ID
-              <input
+              Revisión de Producción
+              <select
                 name="revisionProduccionId"
-                type="number"
                 value={form.revisionProduccionId}
                 onChange={change}
-                placeholder="Ej. 15"
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
+                disabled={loadingReviews}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
+              >
+                <option value="">
+                  {loadingReviews ? "Cargando revisiones..." : "Selecciona una revisión"}
+                </option>
+                {reviewsDisponibles.map((review) => (
+                  <option key={review.id} value={review.id}>
+                    {getReviewLabel(review)}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
               Estado

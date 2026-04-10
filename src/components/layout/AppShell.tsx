@@ -1,5 +1,6 @@
 import { useState, useEffect, type PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
+import logo from "@/assets/Logo.png";
 import {
   Home,
   Map,
@@ -119,7 +120,7 @@ export default function AppShell({ children }: PropsWithChildren) {
               <div>
                 <div>
                   <img
-                    src="src/assets/logo.png"
+                    src={logo}
                     style={{ filter: "invert(1)", width: "36px" }}
                   />{" "}
                 </div>

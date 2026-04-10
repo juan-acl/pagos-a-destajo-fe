@@ -9,7 +9,7 @@ type EmployeeAssignment = {
   id: number;
   metaIndividual: number;
   estado: string;
-  cuadrillaId: number;
+  cuadrillaId: number | Cuadrilla | null;
   fecha_creacion?: string;
   fecha_actualizacion?: string;
 };
@@ -69,16 +69,26 @@ export default function EmployeeAssignmentPage() {
     [cuadrillas],
   );
 
-  const getCuadrilla = (cuadrillaId: number) =>
-    cuadrillas.find((item) => item.id === cuadrillaId);
+  const getCuadrillaId = (cuadrilla: number | Cuadrilla | null | undefined) => {
+    if (cuadrilla == null) return null;
+    return typeof cuadrilla === "number" ? cuadrilla : cuadrilla.id;
+  };
 
-  const getCuadrillaLabel = (cuadrillaId: number) => {
-    const cuadrilla = getCuadrilla(cuadrillaId);
-    if (!cuadrilla) return `ID ${cuadrillaId}`;
+  const getCuadrilla = (cuadrilla: number | Cuadrilla | null | undefined) => {
+    if (cuadrilla == null) return null;
+    if (typeof cuadrilla !== "number") return cuadrilla;
+    return cuadrillas.find((item) => item.id === cuadrilla) ?? null;
+  };
 
-    return cuadrilla.codigoCuadrilla
-      ? `${cuadrilla.nombre} (${cuadrilla.codigoCuadrilla})`
-      : cuadrilla.nombre;
+  const getCuadrillaLabel = (cuadrilla: number | Cuadrilla | null | undefined) => {
+    const cuadrillaData = getCuadrilla(cuadrilla);
+    const cuadrillaId = getCuadrillaId(cuadrilla);
+
+    if (!cuadrillaData) return cuadrillaId ? `ID ${cuadrillaId}` : "Sin cuadrilla";
+
+    return cuadrillaData.codigoCuadrilla
+      ? `${cuadrillaData.nombre} (${cuadrillaData.codigoCuadrilla})`
+      : cuadrillaData.nombre;
   };
 
   const filtered = useMemo(
@@ -87,7 +97,7 @@ export default function EmployeeAssignmentPage() {
         const texto = `${item.id} ${item.metaIndividual} ${getCuadrillaLabel(item.cuadrillaId)}`.toLowerCase();
         const matchSearch = !search || texto.includes(search.toLowerCase());
         const matchCuadrilla =
-          !filterCuadrilla || String(item.cuadrillaId) === filterCuadrilla;
+          !filterCuadrilla || String(getCuadrillaId(item.cuadrillaId) ?? "") === filterCuadrilla;
         const matchEstado = !filterEstado || item.estado === filterEstado;
         return matchSearch && matchCuadrilla && matchEstado;
       }),
@@ -144,7 +154,7 @@ export default function EmployeeAssignmentPage() {
     setForm({
       metaIndividual: item.metaIndividual,
       estado: item.estado,
-      cuadrillaId: item.cuadrillaId,
+      cuadrillaId: getCuadrillaId(item.cuadrillaId) ?? "",
     });
     setEditId(item.id);
     setOpen(true);
@@ -297,6 +307,7 @@ export default function EmployeeAssignmentPage() {
               <tbody>
                 {filtered.map((item, index) => {
                   const cuadrilla = getCuadrilla(item.cuadrillaId);
+                  const cuadrillaId = getCuadrillaId(item.cuadrillaId);
                   return (
                     <tr
                       key={item.id}
@@ -327,7 +338,7 @@ export default function EmployeeAssignmentPage() {
                           <Badge label={getCuadrillaLabel(item.cuadrillaId)} color="amber" />
                         ) : (
                           <span className="text-xs text-gray-400">
-                            ID: {item.cuadrillaId}
+                            ID: {cuadrillaId ?? "-"}
                           </span>
                         )}
                       </td>
