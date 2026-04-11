@@ -49,8 +49,14 @@ const fetchCandidates = () =>
     .then((response) => response.data.data);
 
 const fetchLots = () =>
+const fetchLots = () =>
   api
     .get<ApiEnvelope<ProductionLot[]>>("/production-lot")
+    .then((response) => response.data.data);
+
+const fetchReviews = () =>
+  api
+    .get<ApiEnvelope<ProductionReviewRef[]>>("/production-review")
     .then((response) => response.data.data);
 
 export default function ProductionLotPage() {
@@ -67,6 +73,40 @@ export default function ProductionLotPage() {
     queryKey: ["production-lot"],
     queryFn: fetchLots,
   });
+
+  const getReviewId = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    if (review == null) return null;
+    return typeof review === "number" ? review : review.id;
+  };
+
+  const getReview = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    if (review == null) return null;
+    if (typeof review !== "number") return review;
+    return reviews.find((item) => item.id === review) ?? null;
+  };
+
+  const getReviewLabel = (
+    review: number | ProductionReviewRef | null | undefined,
+  ) => {
+    const reviewData = getReview(review);
+    const reviewId = getReviewId(review);
+
+    if (!reviewData) return reviewId ? `Revisión #${reviewId}` : "Sin revisión";
+
+    return `Revisión #${reviewData.id}${
+      reviewData.estadoRevision ? ` · ${reviewData.estadoRevision}` : ""
+    }${
+      reviewData.cantidadAprobada !== undefined
+        ? ` · Aprobadas ${reviewData.cantidadAprobada}`
+        : ""
+    }`;
+  };
+
+  const reviewsDisponibles = useMemo(() => reviews, [reviews]);
 
   const selectedCandidate = useMemo(
     () => candidates.find((item) => item.id === Number(selectedCandidateId)) ?? null,
