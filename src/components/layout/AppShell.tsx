@@ -242,7 +242,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         {/* Content */}
         <main style={{ flex: 1, padding: isMobile ? "16px" : "28px 32px", minWidth: 0 }}>
           {children}
-        </main>
+        </main>s
       </div>
     </div>
   );
