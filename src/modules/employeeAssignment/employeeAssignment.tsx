@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
@@ -58,6 +58,26 @@ type AssignmentPanel = {
 
 type ManualMeta = Record<number, number | "">;
 
+type ManualMetaByPanel = Record<number, ManualMeta>;
+
+const buildInitialMetas = (panel: AssignmentPanel | null): ManualMeta => {
+  if (!panel) return {};
+
+  if (panel.existingAssignments.length > 0) {
+    return panel.existingAssignments.reduce<ManualMeta>((acc, item) => {
+      if (item.empleadoId != null) {
+        acc[item.empleadoId] = item.metaIndividual;
+      }
+      return acc;
+    }, {});
+  }
+
+  return panel.autoDistribution.reduce<ManualMeta>((acc, item) => {
+    acc[item.empleadoId] = item.metaIndividual;
+    return acc;
+  }, {});
+};
+
 const fetchPanels = () =>
   api
     .get<ApiEnvelope<AssignmentPanel[]>>("/employee-assignment/panels")
@@ -71,7 +91,7 @@ const fetchAssignments = () =>
 export default function EmployeeAssignmentPage() {
   const qc = useQueryClient();
   const [selectedPanelId, setSelectedPanelId] = useState<number | "">("");
-  const [metas, setMetas] = useState<ManualMeta>({});
+  const [metasByPanel, setMetasByPanel] = useState<ManualMetaByPanel>({});
   const [message, setMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -90,32 +110,13 @@ export default function EmployeeAssignmentPage() {
     [panels, selectedPanelId],
   );
 
-  useEffect(() => {
-    if (!selectedPanel) return;
-
-    if (selectedPanel.existingAssignments.length > 0) {
-      const initial = selectedPanel.existingAssignments.reduce<ManualMeta>(
-        (acc, item) => {
-          if (item.empleadoId != null) {
-            acc[item.empleadoId] = item.metaIndividual;
-          }
-          return acc;
-        },
-        {},
-      );
-      setMetas(initial);
-      return;
-    }
-
-    const initial = selectedPanel.autoDistribution.reduce<ManualMeta>((acc, item) => {
-      acc[item.empleadoId] = item.metaIndividual;
-      return acc;
-    }, {});
-    setMetas(initial);
-  }, [selectedPanel]);
+  const metas = useMemo<ManualMeta>(() => {
+    if (!selectedPanel) return {};
+    return metasByPanel[selectedPanel.id] ?? buildInitialMetas(selectedPanel);
+  }, [metasByPanel, selectedPanel]);
 
   const totalManual = useMemo(
-    () => Object.values(metas).reduce((acc, value) => acc + Number(value || 0), 0),
+    () => Object.values(metas).reduce<number>((acc, value) => acc + Number(value || 0), 0),
     [metas],
   );
 
@@ -123,7 +124,8 @@ export default function EmployeeAssignmentPage() {
     const term = search.trim().toLowerCase();
     if (!term) return assignments;
     return assignments.filter((item) => {
-      const text = `${item.id} ${item.empleadoNombre} ${item.cuadrilla?.nombre ?? ""} ${item.ordenTrabajoId ?? ""}`.toLowerCase();
+      const text =
+        `${item.id} ${item.empleadoNombre} ${item.cuadrilla?.nombre ?? ""} ${item.ordenTrabajoId ?? ""}`.toLowerCase();
       return text.includes(term);
     });
   }, [assignments, search]);
@@ -158,10 +160,11 @@ export default function EmployeeAssignmentPage() {
       api.post("/employee-assignment/distribute", {
         asignacionOrdenCuadrillaId: panelId,
         modo: "MANUAL",
-        metas: selectedPanel?.miembros.map((member) => ({
-          empleadoId: member.empleadoId,
-          metaIndividual: Number(metas[member.empleadoId] || 0),
-        })) ?? [],
+        metas:
+          selectedPanel?.miembros.map((member) => ({
+            empleadoId: member.empleadoId,
+            metaIndividual: Number(metas[member.empleadoId] || 0),
+          })) ?? [],
       }),
     onSuccess: async () => {
       resetMessage();
@@ -176,7 +179,10 @@ export default function EmployeeAssignmentPage() {
       acc[item.empleadoId] = item.metaIndividual;
       return acc;
     }, {});
-    setMetas(next);
+    setMetasByPanel((prev) => ({
+      ...prev,
+      [selectedPanel.id]: next,
+    }));
   };
 
   const saveManual = () => {
@@ -194,7 +200,9 @@ export default function EmployeeAssignmentPage() {
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Asignación de Meta Individual</h1>
+          <h1 className="text-2xl font-bold text-gray-900 m-0">
+            Asignación de Meta Individual
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             Distribuya metas por orden y cuadrilla sin tocar manualmente la base.
           </p>
@@ -210,12 +218,26 @@ export default function EmployeeAssignmentPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Paneles activos", value: panels.length, color: "text-gray-900" },
-          { label: "Metas activas", value: assignments.filter((item) => item.estado === "ACTIVA").length, color: "text-[#2D6A4F]" },
-          { label: "Metas inactivas", value: assignments.filter((item) => item.estado === "INACTIVA").length, color: "text-red-600" },
-          { label: "Asignaciones registradas", value: assignments.length, color: "text-blue-600" },
+          {
+            label: "Metas activas",
+            value: assignments.filter((item) => item.estado === "ACTIVA").length,
+            color: "text-[#2D6A4F]",
+          },
+          {
+            label: "Metas inactivas",
+            value: assignments.filter((item) => item.estado === "INACTIVA").length,
+            color: "text-red-600",
+          },
+          {
+            label: "Asignaciones registradas",
+            value: assignments.length,
+            color: "text-blue-600",
+          },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{stat.label}</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              {stat.label}
+            </p>
             <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
           </div>
         ))}
@@ -229,15 +251,27 @@ export default function EmployeeAssignmentPage() {
           <select
             value={selectedPanelId}
             onChange={(e) => {
-              setSelectedPanelId(e.target.value === "" ? "" : Number(e.target.value));
+              const nextPanelId = e.target.value === "" ? "" : Number(e.target.value);
+              setSelectedPanelId(nextPanelId);
               setMessage(null);
+
+              if (nextPanelId === "") return;
+
+              const nextPanel = panels.find((panel) => panel.id === nextPanelId) ?? null;
+              if (!nextPanel) return;
+
+              setMetasByPanel((prev) => ({
+                ...prev,
+                [nextPanelId]: prev[nextPanelId] ?? buildInitialMetas(nextPanel),
+              }));
             }}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
           >
             <option value="">Selecciona una asignación de orden a cuadrilla</option>
             {panels.map((panel) => (
               <option key={panel.id} value={panel.id}>
-                {panel.orden?.numeroOrden ?? `Orden #${panel.orden?.id ?? "-"}`} · {panel.cuadrilla?.nombre ?? `Cuadrilla #${panel.cuadrilla?.id ?? "-"}`}
+                {panel.orden?.numeroOrden ?? `Orden #${panel.orden?.id ?? "-"}`} ·{" "}
+                {panel.cuadrilla?.nombre ?? `Cuadrilla #${panel.cuadrilla?.id ?? "-"}`}
               </option>
             ))}
           </select>
@@ -246,18 +280,44 @@ export default function EmployeeAssignmentPage() {
             <div className="mt-5 space-y-3 text-sm text-gray-700">
               <div className="rounded-lg bg-gray-50 border border-gray-100 p-4">
                 <p className="font-semibold text-gray-900 mb-1">Resumen del panel</p>
-                <p>Orden: <strong>{selectedPanel.orden?.numeroOrden ?? "-"}</strong></p>
-                <p>Cuadrilla: <strong>{selectedPanel.cuadrilla?.nombre ?? "-"}</strong></p>
-                <p>Cantidad asignada: <strong>{selectedPanel.cantidadAsignada}</strong></p>
-                <p>Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong></p>
-                <p>Miembros activos: <strong>{selectedPanel.miembros.length}</strong></p>
+                <p>
+                  Orden: <strong>{selectedPanel.orden?.numeroOrden ?? "-"}</strong>
+                </p>
+                <p>
+                  Cuadrilla: <strong>{selectedPanel.cuadrilla?.nombre ?? "-"}</strong>
+                </p>
+                <p>
+                  Cantidad asignada: <strong>{selectedPanel.cantidadAsignada}</strong>
+                </p>
+                <p>
+                  Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong>
+                </p>
+                <p>
+                  Miembros activos: <strong>{selectedPanel.miembros.length}</strong>
+                </p>
               </div>
 
               <div className="rounded-lg border border-gray-100 p-4">
                 <p className="font-semibold text-gray-900 mb-1">Control de suma</p>
-                <p>Suma actual: <strong className={totalManual > selectedPanel.cantidadAsignada ? "text-red-600" : "text-[#2D6A4F]"}>{totalManual}</strong></p>
-                <p>Máximo permitido: <strong>{selectedPanel.cantidadAsignada}</strong></p>
-                <p>Disponible restante: <strong>{selectedPanel.cantidadAsignada - totalManual}</strong></p>
+                <p>
+                  Suma actual:{" "}
+                  <strong
+                    className={
+                      totalManual > selectedPanel.cantidadAsignada
+                        ? "text-red-600"
+                        : "text-[#2D6A4F]"
+                    }
+                  >
+                    {totalManual}
+                  </strong>
+                </p>
+                <p>
+                  Máximo permitido: <strong>{selectedPanel.cantidadAsignada}</strong>
+                </p>
+                <p>
+                  Disponible restante:{" "}
+                  <strong>{selectedPanel.cantidadAsignada - totalManual}</strong>
+                </p>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -271,14 +331,20 @@ export default function EmployeeAssignmentPage() {
                 <button
                   type="button"
                   onClick={saveManual}
-                  disabled={!selectedPanel.allowEdit || totalManual > selectedPanel.cantidadAsignada || distributeManual.isPending}
+                  disabled={
+                    !selectedPanel.allowEdit ||
+                    totalManual > selectedPanel.cantidadAsignada ||
+                    distributeManual.isPending
+                  }
                   className="w-full bg-[#2D6A4F] disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors border-0 cursor-pointer"
                 >
                   Guardar metas manuales
                 </button>
                 <button
                   type="button"
-                  onClick={() => selectedPanel && distributeAutomatic.mutate(selectedPanel.id)}
+                  onClick={() =>
+                    selectedPanel && distributeAutomatic.mutate(selectedPanel.id)
+                  }
                   disabled={!selectedPanel.allowEdit || distributeAutomatic.isPending}
                   className="w-full bg-blue-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors border-0 cursor-pointer"
                 >
@@ -288,7 +354,8 @@ export default function EmployeeAssignmentPage() {
 
               {!selectedPanel.allowEdit && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  Estas metas ya tienen producción o revisión registrada, por eso están bloqueadas.
+                  Estas metas ya tienen producción o revisión registrada, por eso están
+                  bloqueadas.
                 </p>
               )}
             </div>
@@ -299,12 +366,16 @@ export default function EmployeeAssignmentPage() {
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Detalle por miembro</h2>
-              <p className="text-sm text-gray-500">Ingresa manualmente o usa la distribución automática.</p>
+              <p className="text-sm text-gray-500">
+                Ingresa manualmente o usa la distribución automática.
+              </p>
             </div>
           </div>
 
           {!selectedPanel ? (
-            <p className="text-center py-12 text-gray-400">Selecciona un panel para distribuir metas.</p>
+            <p className="text-center py-12 text-gray-400">
+              Selecciona un panel para distribuir metas.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
@@ -317,7 +388,10 @@ export default function EmployeeAssignmentPage() {
                       "Producción aprobada",
                       "Pendiente",
                     ].map((header) => (
-                      <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                      >
                         {header}
                       </th>
                     ))}
@@ -325,28 +399,54 @@ export default function EmployeeAssignmentPage() {
                 </thead>
                 <tbody>
                   {selectedPanel.miembros.map((member, index) => {
-                    const current = selectedPanel.existingAssignments.find((item) => item.empleadoId === member.empleadoId);
+                    const current = selectedPanel.existingAssignments.find(
+                      (item) => item.empleadoId === member.empleadoId,
+                    );
+
                     return (
-                      <tr key={member.empleadoId} className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                        <td className="px-4 py-3 font-medium text-gray-900">{member.empleadoNombre}</td>
-                        <td className="px-4 py-3 text-gray-600">{member.puestoNombre ?? "-"}</td>
+                      <tr
+                        key={member.empleadoId}
+                        className={`border-t border-gray-100 ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {member.empleadoNombre}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {member.puestoNombre ?? "-"}
+                        </td>
                         <td className="px-4 py-3">
                           <input
                             type="number"
                             min={0}
                             value={metas[member.empleadoId] ?? ""}
                             disabled={!selectedPanel.allowEdit}
-                            onChange={(e) =>
-                              setMetas((prev) => ({
+                            onChange={(e) => {
+                              if (!selectedPanel) return;
+
+                              setMetasByPanel((prev) => ({
                                 ...prev,
-                                [member.empleadoId]: e.target.value === "" ? "" : Number(e.target.value),
-                              }))
-                            }
+                                [selectedPanel.id]: {
+                                  ...(prev[selectedPanel.id] ??
+                                    buildInitialMetas(selectedPanel)),
+                                  [member.empleadoId]:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                },
+                              }));
+                            }}
                             className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100"
                           />
                         </td>
-                        <td className="px-4 py-3 text-[#2D6A4F] font-semibold">{current?.cantidadAprobadaAcumulada ?? 0}</td>
-                        <td className="px-4 py-3 text-gray-600">{current?.cantidadPendiente ?? Number(metas[member.empleadoId] || 0)}</td>
+                        <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
+                          {current?.cantidadAprobadaAcumulada ?? 0}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {current?.cantidadPendiente ??
+                            Number(metas[member.empleadoId] || 0)}
+                        </td>
                       </tr>
                     );
                   })}
@@ -361,7 +461,9 @@ export default function EmployeeAssignmentPage() {
         <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Metas registradas</h2>
-            <p className="text-sm text-gray-500">Vista temporal enriquecida por empleado, orden y cuadrilla.</p>
+            <p className="text-sm text-gray-500">
+              Vista temporal enriquecida por empleado, orden y cuadrilla.
+            </p>
           </div>
           <input
             placeholder="Buscar por empleado, orden o cuadrilla..."
@@ -380,8 +482,19 @@ export default function EmployeeAssignmentPage() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  {["Asignación", "Empleado", "Cuadrilla", "Meta", "Aprobada", "Estado", "Editable"].map((header) => (
-                    <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                  {[
+                    "Asignación",
+                    "Empleado",
+                    "Cuadrilla",
+                    "Meta",
+                    "Aprobada",
+                    "Estado",
+                    "Editable",
+                  ].map((header) => (
+                    <th
+                      key={header}
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                    >
                       {header}
                     </th>
                   ))}
@@ -389,17 +502,32 @@ export default function EmployeeAssignmentPage() {
               </thead>
               <tbody>
                 {filteredAssignments.map((item, index) => (
-                  <tr key={item.id} className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                  <tr
+                    key={item.id}
+                    className={`border-t border-gray-100 ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
                     <td className="px-4 py-3 font-semibold text-gray-900">#{item.id}</td>
                     <td className="px-4 py-3 text-gray-700">{item.empleadoNombre}</td>
-                    <td className="px-4 py-3 text-gray-700">{item.cuadrilla?.nombre ?? "-"}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {item.cuadrilla?.nombre ?? "-"}
+                    </td>
                     <td className="px-4 py-3 text-gray-900">{item.metaIndividual}</td>
-                    <td className="px-4 py-3 text-[#2D6A4F] font-semibold">{item.cantidadAprobadaAcumulada}</td>
-                    <td className="px-4 py-3">
-                      <Badge label={item.estado} color={item.estado === "ACTIVA" ? "green" : "gray"} />
+                    <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
+                      {item.cantidadAprobadaAcumulada}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge label={item.puedeEditar ? "SI" : "NO"} color={item.puedeEditar ? "blue" : "gray"} />
+                      <Badge
+                        label={item.estado}
+                        color={item.estado === "ACTIVA" ? "green" : "gray"}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={item.puedeEditar ? "SI" : "NO"}
+                        color={item.puedeEditar ? "blue" : "gray"}
+                      />
                     </td>
                   </tr>
                 ))}
