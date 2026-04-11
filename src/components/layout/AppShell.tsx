@@ -1,46 +1,12 @@
 import { useState, useEffect, type PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
-import logo from "@/assets/Logo.png";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
-  Home,
-  Map,
-  FileText,
-  Users,
-  Grid2x2,
-  Link2,
-  Briefcase,
-  ClipboardList,
-  Search,
-  Package,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  ChevronLeft,
-  ClipboardCheck,
-  Ruler,
-  ScrollText,
+  Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
+  ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
+  LayoutDashboard
 } from "lucide-react";
-
-const links = [
-  { to: "/", label: "Inicio", icon: Home },
-  { to: "/medidas", label: "Medidas", icon: Ruler },
-  { to: "/ordenes-trabajo", label: "Órdenes", icon: ScrollText },
-  { to: "/puestos", label: "Posiciones", icon: Briefcase },
-  { to: "/empleados", label: "Empleados", icon: Users },
-  { to: "/areas", label: "Áreas", icon: Map },
-  { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
-  { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-  {
-    to: "/asignaciones-orden-cuadrilla",
-    label: "Asignación de órdenes",
-    icon: ClipboardCheck,
-  },
-  { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
-  { to: "/production-review", label: "Revisiones", icon: Search },
-  { to: "/production-lot", label: "Lotes", icon: Package },
-  { to: "/planillas", label: "Planillas", icon: FileText },
-];
+import { useAuthStore, isAdmin } from "@/store/authStore";
+import logo from "@/assets/logo.png";
 
 const SIDEBAR_FULL = 220;
 const SIDEBAR_MINI = 64;
@@ -50,6 +16,8 @@ export default function AppShell({ children }: PropsWithChildren) {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAK);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { logout, empleado } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -64,111 +32,83 @@ export default function AppShell({ children }: PropsWithChildren) {
   const sidebarWidth = isMobile ? 0 : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL;
   const showSidebar = isMobile ? mobileOpen : true;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const initiales = empleado
+    ? `${empleado.primerNombre[0]}${empleado.primerApellido[0]}`
+    : "??";
+
+  const adminLinks = [
+    { to: "/", label: "Inicio", icon: Home },
+    { to: "/areas", label: "Áreas", icon: Map },
+    { to: "/planillas", label: "Planillas", icon: FileText },
+    { to: "/empleados", label: "Empleados", icon: Users },
+    { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
+    { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
+    { to: "/puestos", label: "Posiciones", icon: Briefcase },
+    { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
+    { to: "/production-review", label: "Revisiones", icon: Search },
+    { to: "/production-lot", label: "Lotes", icon: Package },
+  ];
+
+  const operarioLinks = [
+    { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
+  ];
+
+  const links = isAdmin(empleado?.pstPuesto) ? adminLinks : operarioLinks;
+
+  const footerLinks = [
+    { icon: Settings, label: "Settings", action: () => {} },
+    { icon: LogOut, label: "Logout", action: handleLogout },
+  ];
+
   return (
-    <div
-      style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}
-    >
-      {/* Mobile overlay */}
+    <div style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}>
+
       {isMobile && mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 150,
-          }}
-        />
+        <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 150 }} />
       )}
 
-      {/* Sidebar */}
       {showSidebar && (
-        <aside
-          style={{
-            width: isMobile
-              ? SIDEBAR_FULL
-              : collapsed
-                ? SIDEBAR_MINI
-                : SIDEBAR_FULL,
-            minHeight: "100svh",
-            background: "#fff",
-            borderRight: "1px solid #E2E8F0",
-            display: "flex",
-            flexDirection: "column",
-            position: "fixed",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            zIndex: 200,
-            transition: "width 0.2s ease",
-            overflow: "hidden",
-          }}
-        >
+        <aside style={{
+          width: isMobile ? SIDEBAR_FULL : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL,
+          minHeight: "100svh",
+          background: "#fff",
+          borderRight: "1px solid #E2E8F0",
+          display: "flex",
+          flexDirection: "column",
+          position: "fixed",
+          top: 0, left: 0, bottom: 0,
+          zIndex: 200,
+          transition: "width 0.2s ease",
+          overflow: "hidden",
+        }}>
+
           {/* Logo */}
-          <div
-            style={{
-              padding: "20px 16px",
-              borderBottom: "1px solid #E2E8F0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent:
-                collapsed && !isMobile ? "center" : "space-between",
-              minHeight: "64px",
-            }}
-          >
+          <div style={{
+            padding: "20px 16px",
+            borderBottom: "1px solid #E2E8F0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed && !isMobile ? "center" : "space-between",
+            minHeight: "64px",
+          }}>
             {(!collapsed || isMobile) && (
-              <div>
-                <div>
-                  <img
-                    src={logo}
-                    style={{ filter: "invert(1)", width: "36px" }}
-                  />{" "}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#9CA3AF",
-                    marginTop: "2px",
-                    whiteSpace: "nowrap",
-                  }}
-                ></div>
-              </div>
+              <img src={logo} style={{ filter: "invert(1)", width: "36px" }} alt="logo" />
             )}
             {!isMobile && (
               <button
-                onClick={() => setCollapsed((p) => !p)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#6B7280",
-                  padding: "4px",
-                  borderRadius: "6px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
+                onClick={() => setCollapsed(p => !p)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
-                <ChevronLeft
-                  size={18}
-                  style={{
-                    transform: collapsed ? "rotate(180deg)" : "none",
-                    transition: "transform 0.2s",
-                  }}
-                />
+                <ChevronLeft size={18} style={{ transform: collapsed ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
               </button>
             )}
             {isMobile && (
-              <button
-                onClick={() => setMobileOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#6B7280",
-                  padding: "4px",
-                }}
-              >
+              <button onClick={() => setMobileOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px" }}>
                 <X size={20} />
               </button>
             )}
@@ -187,8 +127,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                   display: "flex",
                   alignItems: "center",
                   gap: collapsed && !isMobile ? 0 : "10px",
-                  justifyContent:
-                    collapsed && !isMobile ? "center" : "flex-start",
+                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                   padding: collapsed && !isMobile ? "10px" : "9px 12px",
                   borderRadius: "8px",
                   textDecoration: "none",
@@ -213,25 +152,23 @@ export default function AppShell({ children }: PropsWithChildren) {
           </nav>
 
           {/* Footer */}
-          <div
-            style={{
-              padding: "12px 8px",
-              borderTop: "1px solid #E2E8F0",
-            }}
-          >
-            {[
-              { icon: Settings, label: "Settings" },
-              { icon: LogOut, label: "Logout" },
-            ].map(({ icon: Icon, label }) => (
+          <div style={{ padding: "12px 8px", borderTop: "1px solid #E2E8F0" }}>
+            {(!collapsed || isMobile) && empleado && (
+              <div style={{ padding: "10px 12px", marginBottom: "8px", background: "#F8F9FA", borderRadius: "8px", fontSize: "12px" }}>
+                <p style={{ fontWeight: 600, color: "#1A202C", margin: 0 }}>{empleado.primerNombre} {empleado.primerApellido}</p>
+                <p style={{ color: "#9CA3AF", margin: "2px 0 0", fontSize: "11px" }}>{empleado.email}</p>
+              </div>
+            )}
+            {footerLinks.map(({ icon: Icon, label, action }) => (
               <button
                 key={label}
+                onClick={action}
                 title={collapsed && !isMobile ? label : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: collapsed && !isMobile ? 0 : "10px",
-                  justifyContent:
-                    collapsed && !isMobile ? "center" : "flex-start",
+                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                   width: "100%",
                   padding: collapsed && !isMobile ? "10px" : "9px 12px",
                   borderRadius: "8px",
@@ -239,7 +176,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                   background: "none",
                   cursor: "pointer",
                   fontSize: "14px",
-                  color: "#6B7280",
+                  color: label === "Logout" ? "#DC3545" : "#6B7280",
                   marginBottom: "2px",
                 }}
               >
@@ -252,93 +189,58 @@ export default function AppShell({ children }: PropsWithChildren) {
       )}
 
       {/* Main */}
-      <div
-        style={{
-          marginLeft: isMobile ? 0 : sidebarWidth,
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          transition: "margin-left 0.2s ease",
-          minWidth: 0,
-        }}
-      >
+      <div style={{
+        marginLeft: isMobile ? 0 : sidebarWidth,
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        transition: "margin-left 0.2s ease",
+        minWidth: 0,
+      }}>
         {/* Topbar */}
-        <header
-          style={{
-            height: "56px",
-            background: "#fff",
-            borderBottom: "1px solid #E2E8F0",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 20px",
-            position: "sticky",
-            top: 0,
-            zIndex: 50,
-          }}
-        >
+        <header style={{
+          height: "56px",
+          background: "#fff",
+          borderBottom: "1px solid #E2E8F0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+        }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {isMobile && (
-              <button
-                onClick={() => setMobileOpen(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#6B7280",
-                  padding: "4px",
-                  display: "flex",
-                }}
-              >
+              <button onClick={() => setMobileOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", display: "flex" }}>
                 <Menu size={22} />
               </button>
             )}
-            <span
-              style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}
-            >
-              Pago a destajo
-            </span>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>Pago a destajo</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <button
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#6B7280",
-                display: "flex",
-              }}
-            >
-              <Search size={18} />
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {empleado && (
+              <span style={{ fontSize: "13px", color: "#6B7280" }}>
+                {empleado.primerNombre} {empleado.primerApellido}
+              </span>
+            )}
             <div
+              onClick={handleLogout}
+              title="Cerrar sesión"
               style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                background: "#2D6A4F",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
+                width: "32px", height: "32px", borderRadius: "50%",
+                background: "#2D6A4F", color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
               }}
             >
-              JL
+              {initiales}
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main
-          style={{
-            flex: 1,
-            padding: isMobile ? "16px" : "28px 32px",
-            minWidth: 0,
-          }}
-        >
+        <main style={{ flex: 1, padding: isMobile ? "16px" : "28px 32px", minWidth: 0 }}>
           {children}
         </main>
       </div>
