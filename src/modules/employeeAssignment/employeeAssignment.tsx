@@ -2,207 +2,211 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
-import Modal from "@/components/ui/Modal";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 
-type EmployeeAssignment = {
+type AssignmentItem = {
   id: number;
   metaIndividual: number;
   estado: string;
-  cuadrillaId: number;
-  fecha_creacion?: string;
-  fecha_actualizacion?: string;
+  empleadoId: number | null;
+  empleadoNombre: string;
+  asignacionOrdenCuadrillaId: number | null;
+  ordenTrabajoId: number | null;
+  cantidadAsignadaCuadrilla: number | null;
+  cantidadAprobadaAcumulada: number;
+  cantidadPendiente: number;
+  puedeEditar: boolean;
+  cuadrilla?: {
+    id: number;
+    nombre?: string;
+    codigoCuadrilla?: string | null;
+  } | null;
 };
 
-type Cuadrilla = {
+type PanelMember = {
+  empleadoId: number;
+  empleadoNombre: string;
+  puestoNombre?: string | null;
+};
+
+type PanelAuto = {
+  empleadoId: number;
+  metaIndividual: number;
+};
+
+type AssignmentPanel = {
   id: number;
-  nombre: string;
-  codigoCuadrilla?: string | null;
-  areaId?: number | null;
   estado: string;
+  cantidadAsignada: number;
+  orden?: {
+    id: number;
+    numeroOrden: string;
+    estado: string;
+  } | null;
+  cuadrilla?: {
+    id: number;
+    nombre: string;
+    codigoCuadrilla?: string | null;
+  } | null;
+  miembros: PanelMember[];
+  assignedTotal: number;
+  remaining: number;
+  allowEdit: boolean;
+  autoDistribution: PanelAuto[];
+  existingAssignments: AssignmentItem[];
 };
 
-type EmployeeAssignmentForm = {
-  metaIndividual: number | "";
-  estado: string;
-  cuadrillaId: number | "";
+type ManualMeta = Record<number, number | "">;
+
+type ManualMetaByPanel = Record<number, ManualMeta>;
+
+const buildInitialMetas = (panel: AssignmentPanel | null): ManualMeta => {
+  if (!panel) return {};
+
+  if (panel.existingAssignments.length > 0) {
+    return panel.existingAssignments.reduce<ManualMeta>((acc, item) => {
+      if (item.empleadoId != null) {
+        acc[item.empleadoId] = item.metaIndividual;
+      }
+      return acc;
+    }, {});
+  }
+
+  return panel.autoDistribution.reduce<ManualMeta>((acc, item) => {
+    acc[item.empleadoId] = item.metaIndividual;
+    return acc;
+  }, {});
 };
 
-const empty: EmployeeAssignmentForm = {
-  metaIndividual: "",
-  estado: "ACTIVO",
-  cuadrillaId: "",
-};
+const fetchPanels = () =>
+  api
+    .get<ApiEnvelope<AssignmentPanel[]>>("/employee-assignment/panels")
+    .then((response) => response.data.data);
 
 const fetchAssignments = () =>
   api
-    .get<ApiEnvelope<EmployeeAssignment[]>>("/employee-assignment")
-    .then((response) => response.data.data);
-
-const fetchCuadrillas = () =>
-  api
-    .get<ApiEnvelope<Cuadrilla[]>>("/cuadrillas")
+    .get<ApiEnvelope<AssignmentItem[]>>("/employee-assignment")
     .then((response) => response.data.data);
 
 export default function EmployeeAssignmentPage() {
   const qc = useQueryClient();
-  const [form, setForm] = useState<EmployeeAssignmentForm>(empty);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterCuadrilla, setFilterCuadrilla] = useState("");
-  const [filterEstado, setFilterEstado] = useState("");
+  const [selectedPanelId, setSelectedPanelId] = useState<number | "">("");
+  const [metasByPanel, setMetasByPanel] = useState<ManualMetaByPanel>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
-  const { data: assignments = [], isLoading } = useQuery({
+  const { data: panels = [], isLoading: loadingPanels } = useQuery({
+    queryKey: ["employee-assignment-panels"],
+    queryFn: fetchPanels,
+  });
+
+  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: ["employee-assignment"],
     queryFn: fetchAssignments,
   });
 
-  const { data: cuadrillas = [], isLoading: loadingCuadrillas } = useQuery({
-    queryKey: ["cuadrillas"],
-    queryFn: fetchCuadrillas,
-  });
-
-  const cuadrillasDisponibles = useMemo(
-    () => cuadrillas.filter((item) => item.estado === "ACTIVO"),
-    [cuadrillas],
+  const selectedPanel = useMemo(
+    () => panels.find((item) => item.id === Number(selectedPanelId)) ?? null,
+    [panels, selectedPanelId],
   );
 
-  const getCuadrilla = (cuadrillaId: number) =>
-    cuadrillas.find((item) => item.id === cuadrillaId);
+  const metas = useMemo<ManualMeta>(() => {
+    if (!selectedPanel) return {};
+    return metasByPanel[selectedPanel.id] ?? buildInitialMetas(selectedPanel);
+  }, [metasByPanel, selectedPanel]);
 
-  const getCuadrillaLabel = (cuadrillaId: number) => {
-    const cuadrilla = getCuadrilla(cuadrillaId);
-    if (!cuadrilla) return `ID ${cuadrillaId}`;
-
-    return cuadrilla.codigoCuadrilla
-      ? `${cuadrilla.nombre} (${cuadrilla.codigoCuadrilla})`
-      : cuadrilla.nombre;
-  };
-
-  const filtered = useMemo(
-    () =>
-      assignments.filter((item) => {
-        const texto = `${item.id} ${item.metaIndividual} ${getCuadrillaLabel(item.cuadrillaId)}`.toLowerCase();
-        const matchSearch = !search || texto.includes(search.toLowerCase());
-        const matchCuadrilla =
-          !filterCuadrilla || String(item.cuadrillaId) === filterCuadrilla;
-        const matchEstado = !filterEstado || item.estado === filterEstado;
-        return matchSearch && matchCuadrilla && matchEstado;
-      }),
-    [assignments, search, filterCuadrilla, filterEstado, cuadrillas],
+  const totalManual = useMemo(
+    () => Object.values(metas).reduce<number>((acc, value) => acc + Number(value || 0), 0),
+    [metas],
   );
 
-  const activas = assignments.filter((item) => item.estado === "ACTIVO").length;
-  const inactivas = assignments.filter((item) => item.estado === "INACTIVO").length;
+  const filteredAssignments = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return assignments;
+    return assignments.filter((item) => {
+      const text =
+        `${item.id} ${item.empleadoNombre} ${item.cuadrilla?.nombre ?? ""} ${item.ordenTrabajoId ?? ""}`.toLowerCase();
+      return text.includes(term);
+    });
+  }, [assignments, search]);
 
-  const reset = () => {
-    setForm(empty);
-    setEditId(null);
-    setOpen(false);
-    setMessage(null);
-  };
+  const resetMessage = () => setMessage(null);
 
   const invalidate = async () => {
-    await qc.invalidateQueries({ queryKey: ["employee-assignment"] });
-    reset();
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["employee-assignment-panels"] }),
+      qc.invalidateQueries({ queryKey: ["employee-assignment"] }),
+      qc.invalidateQueries({ queryKey: ["production-review-pending"] }),
+      qc.invalidateQueries({ queryKey: ["production-lot-candidates"] }),
+    ]);
   };
 
-  const create = useMutation({
-    mutationFn: (payload: EmployeeAssignmentForm) =>
-      api.post("/employee-assignment", {
-        metaIndividual: Number(payload.metaIndividual),
-        estado: payload.estado,
-        cuadrillaId: Number(payload.cuadrillaId),
+  const distributeAutomatic = useMutation({
+    mutationFn: async (panelId: number) =>
+      api.post("/employee-assignment/distribute", {
+        asignacionOrdenCuadrillaId: panelId,
+        modo: "AUTOMATICA",
+        metas: [],
       }),
-    onSuccess: invalidate,
-    onError: (error) => setMessage(getErrorMessage(error)),
-  });
-
-  const update = useMutation({
-    mutationFn: (payload: EmployeeAssignmentForm) =>
-      api.put(`/employee-assignment/${editId}`, {
-        metaIndividual: Number(payload.metaIndividual),
-        estado: payload.estado,
-        cuadrillaId: Number(payload.cuadrillaId),
-      }),
-    onSuccess: invalidate,
-    onError: (error) => setMessage(getErrorMessage(error)),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: number) => api.delete(`/employee-assignment/${id}`),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["employee-assignment"] });
-      setMessage(null);
+      resetMessage();
+      await invalidate();
     },
     onError: (error) => setMessage(getErrorMessage(error)),
   });
 
-  const edit = (item: EmployeeAssignment) => {
-    setForm({
-      metaIndividual: item.metaIndividual,
-      estado: item.estado,
-      cuadrillaId: item.cuadrillaId,
-    });
-    setEditId(item.id);
-    setOpen(true);
-    setMessage(null);
-  };
+  const distributeManual = useMutation({
+    mutationFn: async (panelId: number) =>
+      api.post("/employee-assignment/distribute", {
+        asignacionOrdenCuadrillaId: panelId,
+        modo: "MANUAL",
+        metas:
+          selectedPanel?.miembros.map((member) => ({
+            empleadoId: member.empleadoId,
+            metaIndividual: Number(metas[member.empleadoId] || 0),
+          })) ?? [],
+      }),
+    onSuccess: async () => {
+      resetMessage();
+      await invalidate();
+    },
+    onError: (error) => setMessage(getErrorMessage(error)),
+  });
 
-  const change = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
+  const applyAutoPreview = () => {
+    if (!selectedPanel) return;
+    const next = selectedPanel.autoDistribution.reduce<ManualMeta>((acc, item) => {
+      acc[item.empleadoId] = item.metaIndividual;
+      return acc;
+    }, {});
+    setMetasByPanel((prev) => ({
       ...prev,
-      [name]:
-        name === "metaIndividual" || name === "cuadrillaId"
-          ? value === ""
-            ? ""
-            : Number(value)
-          : value,
+      [selectedPanel.id]: next,
     }));
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage(null);
-
-    if (form.cuadrillaId === "") {
-      setMessage("Debes seleccionar una cuadrilla.");
+  const saveManual = () => {
+    if (!selectedPanel) return;
+    if (totalManual > selectedPanel.cantidadAsignada) {
+      setMessage(
+        `La suma de metas (${totalManual}) supera la cantidad asignada (${selectedPanel.cantidadAsignada}).`,
+      );
       return;
     }
-
-    if (editId) {
-      update.mutate(form);
-      return;
-    }
-
-    create.mutate(form);
+    distributeManual.mutate(selectedPanel.id);
   };
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 m-0">
-            Asignación de Empleado
+            Asignación de Meta Individual
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Configure metas individuales por cuadrilla y controle su estado.
+            Distribuya metas por orden y cuadrilla sin tocar manualmente la base.
           </p>
         </div>
-        <button
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0"
-        >
-          + Nueva Asignación
-        </button>
       </div>
 
       {message && (
@@ -211,25 +215,26 @@ export default function EmployeeAssignmentPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
+          { label: "Paneles activos", value: panels.length, color: "text-gray-900" },
           {
-            label: "Total Asignaciones",
-            value: assignments.length,
-            color: "text-gray-900",
+            label: "Metas activas",
+            value: assignments.filter((item) => item.estado === "ACTIVA").length,
+            color: "text-[#2D6A4F]",
           },
-          { label: "Activas", value: activas, color: "text-[#2D6A4F]" },
-          { label: "Inactivas", value: inactivas, color: "text-red-600" },
           {
-            label: "Cuadrillas",
-            value: cuadrillasDisponibles.length,
-            color: "text-gray-900",
+            label: "Metas inactivas",
+            value: assignments.filter((item) => item.estado === "INACTIVA").length,
+            color: "text-red-600",
+          },
+          {
+            label: "Asignaciones registradas",
+            value: assignments.length,
+            color: "text-blue-600",
           },
         ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl border border-gray-200 p-5"
-          >
+          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
               {stat.label}
             </p>
@@ -238,41 +243,240 @@ export default function EmployeeAssignmentPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col lg:flex-row gap-3">
-        <input
-          placeholder="Buscar por asignación, meta o cuadrilla..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
-        />
-        <select
-          value={filterCuadrilla}
-          onChange={(e) => setFilterCuadrilla(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
-        >
-          <option value="">Cuadrilla: Todas</option>
-          {cuadrillas.map((cuadrilla) => (
-            <option key={cuadrilla.id} value={cuadrilla.id}>
-              {getCuadrillaLabel(cuadrilla.id)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterEstado}
-          onChange={(e) => setFilterEstado(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
-        >
-          <option value="">Estado: Todos</option>
-          <option value="ACTIVO">ACTIVO</option>
-          <option value="INACTIVO">INACTIVO</option>
-        </select>
+      <div className="grid lg:grid-cols-[340px,1fr] gap-6 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Orden y cuadrilla
+          </label>
+          <select
+            value={selectedPanelId}
+            onChange={(e) => {
+              const nextPanelId = e.target.value === "" ? "" : Number(e.target.value);
+              setSelectedPanelId(nextPanelId);
+              setMessage(null);
+
+              if (nextPanelId === "") return;
+
+              const nextPanel = panels.find((panel) => panel.id === nextPanelId) ?? null;
+              if (!nextPanel) return;
+
+              setMetasByPanel((prev) => ({
+                ...prev,
+                [nextPanelId]: prev[nextPanelId] ?? buildInitialMetas(nextPanel),
+              }));
+            }}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">Selecciona una asignación de orden a cuadrilla</option>
+            {panels.map((panel) => (
+              <option key={panel.id} value={panel.id}>
+                {panel.orden?.numeroOrden ?? `Orden #${panel.orden?.id ?? "-"}`} ·{" "}
+                {panel.cuadrilla?.nombre ?? `Cuadrilla #${panel.cuadrilla?.id ?? "-"}`}
+              </option>
+            ))}
+          </select>
+
+          {selectedPanel && (
+            <div className="mt-5 space-y-3 text-sm text-gray-700">
+              <div className="rounded-lg bg-gray-50 border border-gray-100 p-4">
+                <p className="font-semibold text-gray-900 mb-1">Resumen del panel</p>
+                <p>
+                  Orden: <strong>{selectedPanel.orden?.numeroOrden ?? "-"}</strong>
+                </p>
+                <p>
+                  Cuadrilla: <strong>{selectedPanel.cuadrilla?.nombre ?? "-"}</strong>
+                </p>
+                <p>
+                  Cantidad asignada: <strong>{selectedPanel.cantidadAsignada}</strong>
+                </p>
+                <p>
+                  Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong>
+                </p>
+                <p>
+                  Miembros activos: <strong>{selectedPanel.miembros.length}</strong>
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-gray-100 p-4">
+                <p className="font-semibold text-gray-900 mb-1">Control de suma</p>
+                <p>
+                  Suma actual:{" "}
+                  <strong
+                    className={
+                      totalManual > selectedPanel.cantidadAsignada
+                        ? "text-red-600"
+                        : "text-[#2D6A4F]"
+                    }
+                  >
+                    {totalManual}
+                  </strong>
+                </p>
+                <p>
+                  Máximo permitido: <strong>{selectedPanel.cantidadAsignada}</strong>
+                </p>
+                <p>
+                  Disponible restante:{" "}
+                  <strong>{selectedPanel.cantidadAsignada - totalManual}</strong>
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={applyAutoPreview}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border-0 cursor-pointer"
+                >
+                  Cargar distribución equitativa
+                </button>
+                <button
+                  type="button"
+                  onClick={saveManual}
+                  disabled={
+                    !selectedPanel.allowEdit ||
+                    totalManual > selectedPanel.cantidadAsignada ||
+                    distributeManual.isPending
+                  }
+                  className="w-full bg-[#2D6A4F] disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors border-0 cursor-pointer"
+                >
+                  Guardar metas manuales
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectedPanel && distributeAutomatic.mutate(selectedPanel.id)
+                  }
+                  disabled={!selectedPanel.allowEdit || distributeAutomatic.isPending}
+                  className="w-full bg-blue-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors border-0 cursor-pointer"
+                >
+                  Guardar distribución automática
+                </button>
+              </div>
+
+              {!selectedPanel.allowEdit && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Estas metas ya tienen producción o revisión registrada, por eso están
+                  bloqueadas.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Detalle por miembro</h2>
+              <p className="text-sm text-gray-500">
+                Ingresa manualmente o usa la distribución automática.
+              </p>
+            </div>
+          </div>
+
+          {!selectedPanel ? (
+            <p className="text-center py-12 text-gray-400">
+              Selecciona un panel para distribuir metas.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    {[
+                      "Empleado",
+                      "Puesto",
+                      "Meta",
+                      "Producción aprobada",
+                      "Pendiente",
+                    ].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedPanel.miembros.map((member, index) => {
+                    const current = selectedPanel.existingAssignments.find(
+                      (item) => item.empleadoId === member.empleadoId,
+                    );
+
+                    return (
+                      <tr
+                        key={member.empleadoId}
+                        className={`border-t border-gray-100 ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {member.empleadoNombre}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {member.puestoNombre ?? "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min={0}
+                            value={metas[member.empleadoId] ?? ""}
+                            disabled={!selectedPanel.allowEdit}
+                            onChange={(e) => {
+                              if (!selectedPanel) return;
+
+                              setMetasByPanel((prev) => ({
+                                ...prev,
+                                [selectedPanel.id]: {
+                                  ...(prev[selectedPanel.id] ??
+                                    buildInitialMetas(selectedPanel)),
+                                  [member.empleadoId]:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                },
+                              }));
+                            }}
+                            className="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-100"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
+                          {current?.cantidadAprobadaAcumulada ?? 0}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {current?.cantidadPendiente ??
+                            Number(metas[member.empleadoId] || 0)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
+        <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Metas registradas</h2>
+            <p className="text-sm text-gray-500">
+              Vista temporal enriquecida por empleado, orden y cuadrilla.
+            </p>
+          </div>
+          <input
+            placeholder="Buscar por empleado, orden o cuadrilla..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 min-w-[260px]"
+          />
+        </div>
+
+        {loadingPanels || loadingAssignments ? (
           <p className="text-center py-12 text-gray-400">Cargando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-gray-400">Sin resultados</p>
+        ) : filteredAssignments.length === 0 ? (
+          <p className="text-center py-12 text-gray-400">Sin metas registradas.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -280,10 +484,12 @@ export default function EmployeeAssignmentPage() {
                 <tr className="bg-gray-50">
                   {[
                     "Asignación",
-                    "Meta Individual",
+                    "Empleado",
                     "Cuadrilla",
+                    "Meta",
+                    "Aprobada",
                     "Estado",
-                    "Acciones",
+                    "Editable",
                   ].map((header) => (
                     <th
                       key={header}
@@ -295,161 +501,41 @@ export default function EmployeeAssignmentPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item, index) => {
-                  const cuadrilla = getCuadrilla(item.cuadrillaId);
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                            A{item.id}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              Asignación #{item.id}
-                            </p>
-                            <p className="text-xs text-gray-400 font-mono">
-                              {cuadrilla?.codigoCuadrilla ?? "Sin código"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-gray-900">
-                          {item.metaIndividual}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {cuadrilla ? (
-                          <Badge label={getCuadrillaLabel(item.cuadrillaId)} color="amber" />
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            ID: {item.cuadrillaId}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          label={item.estado}
-                          color={item.estado === "ACTIVO" ? "green" : "gray"}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => edit(item)}
-                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
-                            title="Editar"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={() => remove.mutate(item.id)}
-                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredAssignments.map((item, index) => (
+                  <tr
+                    key={item.id}
+                    className={`border-t border-gray-100 ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
+                    <td className="px-4 py-3 font-semibold text-gray-900">#{item.id}</td>
+                    <td className="px-4 py-3 text-gray-700">{item.empleadoNombre}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {item.cuadrilla?.nombre ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-900">{item.metaIndividual}</td>
+                    <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
+                      {item.cantidadAprobadaAcumulada}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={item.estado}
+                        color={item.estado === "ACTIVA" ? "green" : "gray"}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={item.puedeEditar ? "SI" : "NO"}
+                        color={item.puedeEditar ? "blue" : "gray"}
+                      />
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
-          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-            Mostrando {filtered.length} de {assignments.length} asignaciones
-          </p>
-        )}
       </div>
-
-      <Modal
-        open={open}
-        title={editId ? "Editar Asignación" : "Nueva Asignación"}
-        subtitle="Complete la información para registrar la asignación del empleado."
-        onClose={reset}
-      >
-        <form onSubmit={submit}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Meta Individual *
-              <input
-                name="metaIndividual"
-                type="number"
-                placeholder="Ej. 120"
-                value={form.metaIndividual}
-                onChange={change}
-                required
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Cuadrilla *
-              <select
-                name="cuadrillaId"
-                value={form.cuadrillaId}
-                onChange={change}
-                required
-                disabled={loadingCuadrillas}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
-              >
-                <option value="">
-                  {loadingCuadrillas
-                    ? "Cargando cuadrillas..."
-                    : "Selecciona una cuadrilla"}
-                </option>
-                {cuadrillasDisponibles.map((cuadrilla) => (
-                  <option key={cuadrilla.id} value={cuadrilla.id}>
-                    {getCuadrillaLabel(cuadrilla.id)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
-              Estado
-              <div className="flex gap-4 mt-1">
-                {["ACTIVO", "INACTIVO"].map((estado) => (
-                  <label
-                    key={estado}
-                    className="flex items-center gap-2 cursor-pointer text-sm font-normal normal-case tracking-normal text-gray-700"
-                  >
-                    <input
-                      type="radio"
-                      name="estado"
-                      value={estado}
-                      checked={form.estado === estado}
-                      onChange={change}
-                    />
-                    {estado.charAt(0) + estado.slice(1).toLowerCase()}
-                  </label>
-                ))}
-              </div>
-            </label>
-          </div>
-          <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={reset}
-              className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={create.isPending || update.isPending}
-              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50"
-            >
-              {editId ? "Actualizar" : "Guardar Asignación"}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
