@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
   ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
-  LayoutDashboard, Ruler, ClipboardCheck, GitMerge, ScrollText,
+  LayoutDashboard, Ruler, GitMerge, ScrollText,
 } from "lucide-react";
 import { useAuthStore, isAdmin } from "@/store/authStore";
 import logo from "@/assets/logo.png";
@@ -54,7 +54,6 @@ export default function AppShell({ children }: PropsWithChildren) {
     { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: GitMerge },
     { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
     { to: "/production-review", label: "Revisiones", icon: Search },
-    { to: "/revision-destajo", label: "Revisión Destajo", icon: ClipboardCheck }, // ✅ tu enlace
     { to: "/production-lot", label: "Lotes", icon: Package },
   ];
 

@@ -13,7 +13,6 @@ const OrdenTrabajo = lazy(() => import("@/modules/ordenTrabajo/ordenTrabajo"));
 const AsignacionOrdenCuadrilla = lazy(() => import("@/modules/asignacionOrdenCuadrilla/asignacionOrdenCuadrilla"));
 const EmployeeAssignment = lazy(() => import("@/modules/employeeAssignment/employeeAssignment"));
 const ProductionReview = lazy(() => import("@/modules/productionReview/productionReview"));
-const RevisionDestajo = lazy(() => import("@/modules/revisionDestajo/revisionDestajo")); // ✅ tu módulo
 const ProductionLot = lazy(() => import("@/modules/productionLot/productionLot"));
 const Area = lazy(() => import("@/modules/area/area"));
 const Planilla = lazy(() => import("@/modules/planilla/planilla"));
@@ -51,7 +50,6 @@ export default function Router() {
                     <Route path="/asignaciones-orden-cuadrilla" element={<AdminRoute><AsignacionOrdenCuadrilla /></AdminRoute>} />
                     <Route path="/employee-assignment" element={<AdminRoute><EmployeeAssignment /></AdminRoute>} />
                     <Route path="/production-review" element={<AdminRoute><ProductionReview /></AdminRoute>} />
-                    <Route path="/revision-destajo" element={<AdminRoute><RevisionDestajo /></AdminRoute>} /> {/* ✅ tu ruta */}
                     <Route path="/production-lot" element={<AdminRoute><ProductionLot /></AdminRoute>} />
                     <Route path="/areas" element={<AdminRoute><Area /></AdminRoute>} />
                     <Route path="/planillas" element={<AdminRoute><Planilla /></AdminRoute>} />
