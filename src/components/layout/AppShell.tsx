@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
   ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
-  LayoutDashboard, Ruler, GitMerge, ScrollText,
+  LayoutDashboard
 } from "lucide-react";
 import { useAuthStore, isAdmin } from "@/store/authStore";
 import logo from "@/assets/logo.png";
@@ -43,15 +43,15 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const adminLinks = [
     { to: "/", label: "Inicio", icon: Home },
-    { to: "/medidas", label: "Medidas", icon: Ruler },
-    { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ScrollText },
+    { to: "/medidas", label: "Medidas", },
+    { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", },
     { to: "/areas", label: "Áreas", icon: Map },
     { to: "/planillas", label: "Planillas", icon: FileText },
     { to: "/empleados", label: "Empleados", icon: Users },
     { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
     { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
     { to: "/puestos", label: "Posiciones", icon: Briefcase },
-    { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: GitMerge },
+    { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon},
     { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
     { to: "/production-review", label: "Revisiones", icon: Search },
     { to: "/production-lot", label: "Lotes", icon: Package },
