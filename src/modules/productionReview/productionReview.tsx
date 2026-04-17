@@ -28,19 +28,6 @@ type ProductionReview = {
   fechaRevision: string;
   assignment?: PendingAssignment | null;
 };
-
-type ReviewForm = {
-  cantidadRecibida: number | "";
-  cantidadAprobada: number | "";
-  observaciones: string;
-};
-
-const emptyForm: ReviewForm = {
-  cantidadRecibida: "",
-  cantidadAprobada: "",
-  observaciones: "",
-};
-
 // ─── Fetchers ────────────────────────────────────────────────────────────────
 
 const fetchPending = () =>
@@ -51,21 +38,6 @@ const fetchPending = () =>
 const fetchReviews = () =>
   api.get<ApiEnvelope<ProductionReview[]>>("/production-review")
     .then(r => r.data.data);
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function calcRechazo(recibida: number, aprobada: number): number {
-  if (recibida <= 0) return 0;
-  return ((recibida - aprobada) / recibida) * 100;
-}
-
-function badgeStyle(estado: string): React.CSSProperties {
-  if (estado === "APROBADO" || estado === "APROBADA")
-    return { background: "#dcfce7", color: "#166534", borderRadius: "999px", padding: "3px 10px", fontSize: "12px", fontWeight: 600, display: "inline-flex" };
-  if (estado === "OBSERVADO" || estado === "OBSERVADA")
-    return { background: "#fef9c3", color: "#854d0e", borderRadius: "999px", padding: "3px 10px", fontSize: "12px", fontWeight: 600, display: "inline-flex" };
-  return { background: "#e0f2fe", color: "#0369a1", borderRadius: "999px", padding: "3px 10px", fontSize: "12px", fontWeight: 600, display: "inline-flex" };
-}
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
@@ -129,15 +101,6 @@ export default function ProductionReviewPage() {
         observaciones: observaciones.trim() || undefined,
       }),
     onSuccess: invalidate,
-    onError: (error) => setMessage(getErrorMessage(error)),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: number) => api.delete(`/production-review/${id}`),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["production-review"] });
-      setMessage(null);
-    },
     onError: (error) => setMessage(getErrorMessage(error)),
   });
 
