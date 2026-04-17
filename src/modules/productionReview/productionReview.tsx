@@ -22,12 +22,13 @@ type ProductionReview = {
   id: number;
   cantidadRecibida: number;
   cantidadAprobada: number;
-  estadoRevision: string;
   porcentajeRechazo: number;
+  estadoRevision: string;
   observaciones?: string | null;
   fechaRevision: string;
   assignment?: PendingAssignment | null;
 };
+// ─── Fetchers ────────────────────────────────────────────────────────────────
 
 const fetchPending = () =>
   api
@@ -35,9 +36,10 @@ const fetchPending = () =>
     .then((response) => response.data.data);
 
 const fetchReviews = () =>
-  api
-    .get<ApiEnvelope<ProductionReview[]>>("/production-review")
-    .then((response) => response.data.data);
+  api.get<ApiEnvelope<ProductionReview[]>>("/production-review")
+    .then(r => r.data.data);
+
+// ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function ProductionReviewPage() {
   const qc = useQueryClient();
@@ -47,6 +49,7 @@ export default function ProductionReviewPage() {
   const [observaciones, setObservaciones] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
+  // Queries
   const { data: pending = [], isLoading: loadingPending } = useQuery({
     queryKey: ["production-review-pending"],
     queryFn: fetchPending,
