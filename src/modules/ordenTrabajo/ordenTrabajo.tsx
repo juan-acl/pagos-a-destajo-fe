@@ -5,16 +5,17 @@ import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
 
 type Medida = { id: number; nombre: string; iniciales: string; };
+type Modalidad = "DESTAJO" | "PAGO_POR_DIAS";
 type OrdenTrabajo = {
   id: number; numeroOrden: string; cantidadRequerida: number;
   medidaId?: number | null; pagoUnitario: number;
-  fechaLimite?: string | null; estado: string;
+  fechaLimite?: string | null; estado: string; modalidad: Modalidad;
 };
 type OrdenTrabajoForm = Omit<OrdenTrabajo, "id">;
 
 const empty: OrdenTrabajoForm = {
   numeroOrden: "", cantidadRequerida: 0, medidaId: null,
-  pagoUnitario: 0, fechaLimite: "", estado: "activo",
+  pagoUnitario: 0, fechaLimite: "", estado: "activo", modalidad: "DESTAJO",
 };
 
 const fetcherOrdenes = () => api.get<{ data: OrdenTrabajo[] }>("/ordenes-trabajo").then(r => r.data.data);
@@ -39,7 +40,7 @@ export default function OrdenTrabajo() {
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
   const edit = (o: OrdenTrabajo) => {
-    setForm({ numeroOrden: o.numeroOrden, cantidadRequerida: o.cantidadRequerida, medidaId: o.medidaId ?? null, pagoUnitario: o.pagoUnitario, fechaLimite: o.fechaLimite ?? "", estado: o.estado });
+    setForm({ numeroOrden: o.numeroOrden, cantidadRequerida: o.cantidadRequerida, medidaId: o.medidaId ?? null, pagoUnitario: o.pagoUnitario, fechaLimite: o.fechaLimite ?? "", estado: o.estado, modalidad: o.modalidad ?? "DESTAJO" });
     setEditId(o.id); setOpen(true);
   };
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -87,7 +88,7 @@ export default function OrdenTrabajo() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  {["N° Orden", "Cantidad", "Medida", "Pago unitario", "Fecha límite", "Estado", "Acciones"].map(h => (
+                  {["N° Orden", "Cantidad", "Medida", "Modalidad", "Pago unitario", "Fecha límite", "Estado", "Acciones"].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
                   ))}
                 </tr>
@@ -100,7 +101,13 @@ export default function OrdenTrabajo() {
                     <td className="px-4 py-3">
                       <Badge label={getMedidaNombre(o.medidaId)} color="blue" />
                     </td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">Q {Number(o.pagoUnitario).toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <Badge label={o.modalidad ?? "DESTAJO"} color={o.modalidad === "PAGO_POR_DIAS" ? "amber" : "green"} />
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      Q {Number(o.pagoUnitario).toFixed(2)}
+                      <span className="ml-1 text-xs font-normal text-gray-400">{o.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}</span>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{o.fechaLimite ? new Date(o.fechaLimite).toLocaleDateString() : "-"}</td>
                     <td className="px-4 py-3">
                       <Badge label={o.estado.toUpperCase()} color={o.estado === "activo" ? "green" : "gray"} />
@@ -144,8 +151,15 @@ export default function OrdenTrabajo() {
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Pago unitario *
-              <input name="pagoUnitario" type="number" value={form.pagoUnitario} onChange={change} required min={0} step="0.01" placeholder="Ej. 2.50" className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
+              Modalidad de pago *
+              <select name="modalidad" value={form.modalidad} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
+                <option value="DESTAJO">Destajo (por pieza)</option>
+                <option value="PAGO_POR_DIAS">Pago por día</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {form.modalidad === "PAGO_POR_DIAS" ? "Pago por día *" : "Pago unitario (por pieza) *"}
+              <input name="pagoUnitario" type="number" value={form.pagoUnitario} onChange={change} required min={0} step="0.01" placeholder={form.modalidad === "PAGO_POR_DIAS" ? "Ej. 150.00" : "Ej. 2.50"} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Fecha límite
