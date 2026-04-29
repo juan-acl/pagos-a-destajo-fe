@@ -2,8 +2,29 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
-import Modal from "@/components/ui/Modal";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+
+type LotCandidate = {
+  id: number;
+  cantidadAsignada: number;
+  totalAprobado: number;
+  montoTotal: number;
+  canGenerate: boolean;
+  blockers: string[];
+  orden?: {
+    id: number;
+    numeroOrden: string;
+    estado: string;
+    cantidadRequerida: number;
+    pagoUnitario: number;
+  } | null;
+  cuadrilla?: {
+    id: number;
+    nombre: string;
+  } | null;
+  pendingAssignments: { id: number; empleadoNombre: string }[];
+  observedReviews: { id: number; assignment?: { empleadoNombre?: string } | null }[];
+};
 
 type ProductionLot = {
   id: number;
@@ -11,170 +32,75 @@ type ProductionLot = {
   totalPiezasAprobadas: number;
   fechaEnvio: string;
   estado: string;
-  revisionProduccionId?: number | null;
+  montoTotal: number;
+  orden?: {
+    id: number;
+    numeroOrden: string;
+  } | null;
+  cuadrilla?: {
+    id: number;
+    nombre: string;
+  } | null;
 };
 
-type ProductionLotForm = {
-  numeroLote: string;
-  totalPiezasAprobadas: number | "";
-  fechaEnvio: string;
-  estado: string;
-  revisionProduccionId: number | "";
-};
+const fetchCandidates = () =>
+  api
+    .get<ApiEnvelope<LotCandidate[]>>("/production-lot/candidates")
+    .then((response) => response.data.data);
 
-const empty: ProductionLotForm = {
-  numeroLote: "",
-  totalPiezasAprobadas: "",
-  fechaEnvio: "",
-  estado: "ACTIVO",
-  revisionProduccionId: "",
-};
-
-const fetcher = () =>
+const fetchLots = () =>
   api
     .get<ApiEnvelope<ProductionLot[]>>("/production-lot")
     .then((response) => response.data.data);
 
 export default function ProductionLotPage() {
   const qc = useQueryClient();
-  const [form, setForm] = useState<ProductionLotForm>(empty);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterEstado, setFilterEstado] = useState("");
+  const [selectedCandidateId, setSelectedCandidateId] = useState<number | "">("");
   const [message, setMessage] = useState<string | null>(null);
 
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["production-lot"],
-    queryFn: fetcher,
+  const { data: candidates = [], isLoading: loadingCandidates } = useQuery({
+    queryKey: ["production-lot-candidates"],
+    queryFn: fetchCandidates,
   });
 
-  const filtered = useMemo(
-    () =>
-      data.filter((item) => {
-        const texto = `${item.id} ${item.numeroLote} ${item.totalPiezasAprobadas} ${item.revisionProduccionId ?? ""} ${item.fechaEnvio}`.toLowerCase();
-        const matchSearch = !search || texto.includes(search.toLowerCase());
-        const matchEstado = !filterEstado || item.estado === filterEstado;
-        return matchSearch && matchEstado;
-      }),
-    [data, search, filterEstado],
+  const { data: lots = [], isLoading: loadingLots } = useQuery({
+    queryKey: ["production-lot"],
+    queryFn: fetchLots,
+  });
+
+  const selectedCandidate = useMemo(
+    () => candidates.find((item) => item.id === Number(selectedCandidateId)) ?? null,
+    [candidates, selectedCandidateId],
   );
 
-  const activos = data.filter((item) => item.estado === "ACTIVO").length;
-  const inactivos = data.filter((item) => item.estado === "INACTIVO").length;
-  const vinculados = data.filter((item) => item.revisionProduccionId != null).length;
-
-  const reset = () => {
-    setForm(empty);
-    setEditId(null);
-    setOpen(false);
-    setMessage(null);
-  };
-
   const invalidate = async () => {
-    await qc.invalidateQueries({ queryKey: ["production-lot"] });
-    reset();
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["production-lot-candidates"] }),
+      qc.invalidateQueries({ queryKey: ["production-lot"] }),
+      qc.invalidateQueries({ queryKey: ["production-review-pending"] }),
+    ]);
   };
 
-  const create = useMutation({
-    mutationFn: (payload: ProductionLotForm) =>
-      api.post("/production-lot", {
-        numeroLote: payload.numeroLote,
-        totalPiezasAprobadas: Number(payload.totalPiezasAprobadas),
-        fechaEnvio: payload.fechaEnvio,
-        estado: payload.estado,
-        revisionProduccionId:
-          payload.revisionProduccionId === ""
-            ? undefined
-            : Number(payload.revisionProduccionId),
+  const generate = useMutation({
+    mutationFn: async () =>
+      api.post("/production-lot/generate", {
+        asignacionOrdenCuadrillaId: Number(selectedCandidateId),
       }),
-    onSuccess: invalidate,
-    onError: (error) => setMessage(getErrorMessage(error)),
-  });
-
-  const update = useMutation({
-    mutationFn: (payload: ProductionLotForm) =>
-      api.put(`/production-lot/${editId}`, {
-        numeroLote: payload.numeroLote,
-        totalPiezasAprobadas: Number(payload.totalPiezasAprobadas),
-        fechaEnvio: payload.fechaEnvio,
-        estado: payload.estado,
-        revisionProduccionId:
-          payload.revisionProduccionId === ""
-            ? undefined
-            : Number(payload.revisionProduccionId),
-      }),
-    onSuccess: invalidate,
-    onError: (error) => setMessage(getErrorMessage(error)),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: number) => api.delete(`/production-lot/${id}`),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["production-lot"] });
       setMessage(null);
+      await invalidate();
     },
     onError: (error) => setMessage(getErrorMessage(error)),
   });
 
-  const edit = (item: ProductionLot) => {
-    setForm({
-      numeroLote: item.numeroLote,
-      totalPiezasAprobadas: item.totalPiezasAprobadas,
-      fechaEnvio: item.fechaEnvio?.slice(0, 10) ?? "",
-      estado: item.estado,
-      revisionProduccionId: item.revisionProduccionId ?? "",
-    });
-    setEditId(item.id);
-    setOpen(true);
-    setMessage(null);
-  };
-
-  const change = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]:
-        name === "totalPiezasAprobadas" || name === "revisionProduccionId"
-          ? value === ""
-            ? ""
-            : Number(value)
-          : value,
-    }));
-  };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage(null);
-    if (editId) {
-      update.mutate(form);
-      return;
-    }
-    create.mutate(form);
-  };
-
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 m-0">
-            Lote de Producción
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Gestione lotes enviados, cantidades aprobadas y su vínculo con revisiones.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0"
-        >
-          + Nuevo Lote
-        </button>
+      <div className="mb-7">
+        <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Consolida revisiones aprobadas, muestra bloqueos y genera el lote temporal para
+          enviar a gerencia.
+        </p>
       </div>
 
       {message && (
@@ -185,10 +111,26 @@ export default function ProductionLotPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total Lotes", value: data.length, color: "text-gray-900" },
-          { label: "Activos", value: activos, color: "text-[#2D6A4F]" },
-          { label: "Inactivos", value: inactivos, color: "text-red-600" },
-          { label: "Vinculados", value: vinculados, color: "text-blue-600" },
+          {
+            label: "Paneles evaluados",
+            value: candidates.length,
+            color: "text-gray-900",
+          },
+          {
+            label: "Listos para lote",
+            value: candidates.filter((item) => item.canGenerate).length,
+            color: "text-[#2D6A4F]",
+          },
+          {
+            label: "Con bloqueos",
+            value: candidates.filter((item) => !item.canGenerate).length,
+            color: "text-red-600",
+          },
+          {
+            label: "Lotes generados",
+            value: lots.length,
+            color: "text-blue-600",
+          },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -199,113 +141,239 @@ export default function ProductionLotPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col lg:flex-row gap-3">
-        <input
-          placeholder="Buscar por lote, revisión o fecha..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
-        />
-        <select
-          value={filterEstado}
-          onChange={(e) => setFilterEstado(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white"
-        >
-          <option value="">Estado: Todos</option>
-          <option value="ACTIVO">ACTIVO</option>
-          <option value="INACTIVO">INACTIVO</option>
-        </select>
+      <div className="grid lg:grid-cols-[360px,1fr] gap-6 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Orden y cuadrilla
+          </label>
+          <select
+            value={selectedCandidateId}
+            onChange={(e) => {
+              setSelectedCandidateId(e.target.value === "" ? "" : Number(e.target.value));
+              setMessage(null);
+            }}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">Selecciona un panel</option>
+            {candidates.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.orden?.numeroOrden ?? `Orden #${item.orden?.id ?? "-"}`} ·{" "}
+                {item.cuadrilla?.nombre ?? "Sin cuadrilla"}
+              </option>
+            ))}
+          </select>
+
+          {selectedCandidate && (
+            <div className="mt-4 space-y-3 text-sm text-gray-700">
+              <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-1">
+                <p>
+                  Orden: <strong>{selectedCandidate.orden?.numeroOrden ?? "-"}</strong>
+                </p>
+                <p>
+                  Cuadrilla: <strong>{selectedCandidate.cuadrilla?.nombre ?? "-"}</strong>
+                </p>
+                <p>
+                  Cantidad asignada: <strong>{selectedCandidate.cantidadAsignada}</strong>
+                </p>
+                <p>
+                  Total aprobado:{" "}
+                  <strong className="text-[#2D6A4F]">
+                    {selectedCandidate.totalAprobado}
+                  </strong>
+                </p>
+                <p>
+                  Monto temporal:{" "}
+                  <strong>Q {Number(selectedCandidate.montoTotal ?? 0).toFixed(2)}</strong>
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-gray-100 p-4">
+                <p className="font-semibold text-gray-900 mb-2">Precondiciones</p>
+                {selectedCandidate.blockers.length === 0 ? (
+                  <p className="text-[#2D6A4F]">Todo listo para generar el lote.</p>
+                ) : (
+                  <ul className="list-disc pl-5 space-y-1 text-red-600">
+                    {selectedCandidate.blockers.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {selectedCandidate.pendingAssignments.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="font-semibold text-amber-800 mb-2">
+                    Asignaciones pendientes
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 text-amber-700">
+                    {selectedCandidate.pendingAssignments.map((item) => (
+                      <li key={item.id}>
+                        #{item.id} · {item.empleadoNombre}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {selectedCandidate.observedReviews.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <p className="font-semibold text-red-800 mb-2">Revisiones observadas</p>
+                  <ul className="list-disc pl-5 space-y-1 text-red-700">
+                    {selectedCandidate.observedReviews.map((item) => (
+                      <li key={item.id}>
+                        Revisión #{item.id}
+                        {item.assignment?.empleadoNombre
+                          ? ` · ${item.assignment.empleadoNombre}`
+                          : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => generate.mutate()}
+                disabled={!selectedCandidate.canGenerate || generate.isPending}
+                className="w-full bg-[#2D6A4F] disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg border-0 cursor-pointer"
+              >
+                Generar lote
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900">Estado de cada panel</h2>
+            <p className="text-sm text-gray-500">
+              Aquí ves qué bloquea el lote antes de enviarlo a gerencia.
+            </p>
+          </div>
+
+          {loadingCandidates ? (
+            <p className="text-center py-12 text-gray-400">Cargando...</p>
+          ) : candidates.length === 0 ? (
+            <p className="text-center py-12 text-gray-400">
+              Aún no hay paneles para evaluar.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    {["Orden", "Cuadrilla", "Aprobado", "Monto", "Estado", "Bloqueos"].map(
+                      (header) => (
+                        <th
+                          key={header}
+                          className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                        >
+                          {header}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {candidates.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={`border-t border-gray-100 ${
+                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {item.orden?.numeroOrden ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        {item.cuadrilla?.nombre ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
+                        {item.totalAprobado}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">
+                        Q {Number(item.montoTotal ?? 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          label={item.canGenerate ? "LISTO" : "BLOQUEADO"}
+                          color={item.canGenerate ? "green" : "red"}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {item.blockers[0] ?? "Sin bloqueos"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Lotes generados</h2>
+          <p className="text-sm text-gray-500">
+            Historial temporal de lotes creados desde revisiones aprobadas.
+          </p>
+        </div>
+
+        {loadingLots ? (
           <p className="text-center py-12 text-gray-400">Cargando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-gray-400">Sin resultados</p>
+        ) : lots.length === 0 ? (
+          <p className="text-center py-12 text-gray-400">
+            Aún no hay lotes generados.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  {[
-                    "Lote",
-                    "Piezas Aprobadas",
-                    "Fecha Envío",
-                    "Estado",
-                    "Revisión",
-                    "Acciones",
-                  ].map((header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  {["Lote", "Orden", "Cuadrilla", "Piezas", "Monto", "Estado", "Fecha"].map(
+                    (header) => (
+                      <th
+                        key={header}
+                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200"
+                      >
+                        {header}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item, index) => (
+                {lots.map((item, index) => (
                   <tr
                     key={item.id}
-                    className={`border-t border-gray-100 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}
+                    className={`border-t border-gray-100 ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
                   >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                          {(item.numeroLote || "L").charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {item.numeroLote}
-                          </p>
-                          <p className="text-xs text-gray-400 font-mono">
-                            Lote #{item.id}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
                     <td className="px-4 py-3 font-semibold text-gray-900">
+                      {item.numeroLote}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {item.orden?.numeroOrden ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {item.cuadrilla?.nombre ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-[#2D6A4F] font-semibold">
                       {item.totalPiezasAprobadas}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {item.fechaEnvio?.slice(0, 10) ?? "-"}
+                    <td className="px-4 py-3 text-gray-700">
+                      Q {Number(item.montoTotal ?? 0).toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         label={item.estado}
-                        color={item.estado === "ACTIVO" ? "green" : "gray"}
+                        color={item.estado === "EN_PROCESO" ? "blue" : "gray"}
                       />
                     </td>
-                    <td className="px-4 py-3">
-                      {item.revisionProduccionId ? (
-                        <Badge
-                          label={`Revisión #${item.revisionProduccionId}`}
-                          color="blue"
-                        />
-                      ) : (
-                        <span className="text-xs text-gray-400">
-                          Sin revisión
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => edit(item)}
-                          className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
-                          title="Editar"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => remove.mutate(item.id)}
-                          className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors"
-                          title="Eliminar"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                    <td className="px-4 py-3 text-gray-600">
+                      {item.fechaEnvio?.slice(0, 10) ?? "-"}
                     </td>
                   </tr>
                 ))}
@@ -313,103 +381,7 @@ export default function ProductionLotPage() {
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
-          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-            Mostrando {filtered.length} de {data.length} lotes
-          </p>
-        )}
       </div>
-
-      <Modal
-        open={open}
-        title={editId ? "Editar Lote" : "Nuevo Lote"}
-        subtitle="Complete la información para registrar el lote de producción."
-        onClose={reset}
-      >
-        <form onSubmit={submit}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Número de Lote *
-              <input
-                name="numeroLote"
-                value={form.numeroLote}
-                onChange={change}
-                required
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Total Piezas Aprobadas *
-              <input
-                name="totalPiezasAprobadas"
-                type="number"
-                value={form.totalPiezasAprobadas}
-                onChange={change}
-                required
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Fecha Envío *
-              <input
-                name="fechaEnvio"
-                type="date"
-                value={form.fechaEnvio}
-                onChange={change}
-                required
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Revisión Producción ID
-              <input
-                name="revisionProduccionId"
-                type="number"
-                value={form.revisionProduccionId}
-                onChange={change}
-                placeholder="Ej. 15"
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
-              Estado
-              <div className="flex gap-4 mt-1">
-                {["ACTIVO", "INACTIVO"].map((estado) => (
-                  <label
-                    key={estado}
-                    className="flex items-center gap-2 cursor-pointer text-sm font-normal normal-case tracking-normal text-gray-700"
-                  >
-                    <input
-                      type="radio"
-                      name="estado"
-                      value={estado}
-                      checked={form.estado === estado}
-                      onChange={change}
-                    />
-                    {estado.charAt(0) + estado.slice(1).toLowerCase()}
-                  </label>
-                ))}
-              </div>
-            </label>
-          </div>
-          <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={reset}
-              className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={create.isPending || update.isPending}
-              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50"
-            >
-              {editId ? "Actualizar" : "Guardar Lote"}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
