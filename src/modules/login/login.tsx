@@ -54,7 +54,7 @@ export default function Login() {
           <img src={FIELD_IMAGE} alt="Campo agrícola" className="absolute inset-0 w-full h-full object-cover" />
           <div className="relative z-20 h-full flex flex-col justify-between p-12 text-white">
             <div className="flex items-center gap-3">
-              <img src={logo} alt="PAD" className="w-9 h-9" style={{ filter: "invert(1)" }} />
+              <img src={logo} alt="PAD" className="w-9"/>
               <span className="text-2xl font-black tracking-tighter">PAD</span>
             </div>
             <div>
