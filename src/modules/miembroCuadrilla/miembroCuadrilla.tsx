@@ -32,14 +32,6 @@ export default function MiembroCuadrillaModule() {
   const [filterCuadrilla, setFilterCuadrilla] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
 
-  // Estado asignación masiva
-  const [openMasivo, setOpenMasivo] = useState(false);
-  const [cuadrillaSeleccionada, setCuadrillaSeleccionada] = useState<number>(0);
-  const [fechaMasiva, setFechaMasiva] = useState("");
-  const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState<number[]>([]);
-  const [searchMasivo, setSearchMasivo] = useState("");
-  const [loadingMasivo, setLoadingMasivo] = useState(false);
-
   const { data = [], isLoading } = useQuery({ queryKey: ["miembros-cuadrilla"], queryFn: fetchMiembros });
   const { data: empleados = [] } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
   const { data: cuadrillas = [] } = useQuery({ queryKey: ["cuadrillas"], queryFn: fetchCuadrillas });
@@ -52,22 +44,6 @@ export default function MiembroCuadrillaModule() {
     return matchSearch && matchCuadrilla && matchEstado;
   }), [data, search, filterCuadrilla, filterEstado]);
 
-  // Empleados ya asignados a la cuadrilla seleccionada
-  const empleadosYaAsignados = useMemo(() =>
-    data.filter(m => m.cuadrillaId === cuadrillaSeleccionada && m.estado === "ACTIVO").map(m => m.empleadoId),
-    [data, cuadrillaSeleccionada]
-  );
-
-  // Empleados disponibles para asignar (activos y no asignados a esa cuadrilla)
-  const empleadosDisponibles = useMemo(() =>
-    empleados.filter(e =>
-      e.estado === "ACTIVO" &&
-      !empleadosYaAsignados.includes(e.id) &&
-      `${e.primerNombre} ${e.primerApellido} ${e.codigoEmpleado ?? ""}`.toLowerCase().includes(searchMasivo.toLowerCase())
-    ),
-    [empleados, empleadosYaAsignados, searchMasivo]
-  );
-
   const activos = data.filter(m => m.estado === "ACTIVO").length;
   const inactivos = data.filter(m => m.estado === "INACTIVO").length;
 
@@ -77,60 +53,15 @@ export default function MiembroCuadrillaModule() {
   const remove = useMutation({ mutationFn: (id: number) => api.delete(`/miembros-cuadrilla/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }) });
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
-  const resetMasivo = () => {
-    setOpenMasivo(false);
-    setCuadrillaSeleccionada(0);
-    setFechaMasiva("");
-    setEmpleadosSeleccionados([]);
-    setSearchMasivo("");
-  };
-
   const edit = (m: MiembroCuadrilla) => {
     setForm({ empleadoId: m.empleadoId, cuadrillaId: m.cuadrillaId, fechaIngreso: m.fechaIngreso ?? "", estado: m.estado });
     setEditId(m.id); setOpen(true);
   };
-
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(p => ({ ...p, [name]: name === "empleadoId" || name === "cuadrillaId" ? Number(value) : value }));
   };
-
   const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
-
-  const toggleEmpleado = (id: number) => {
-    setEmpleadosSeleccionados(prev =>
-      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-    );
-  };
-
-  const toggleTodos = () => {
-    if (empleadosSeleccionados.length === empleadosDisponibles.length) {
-      setEmpleadosSeleccionados([]);
-    } else {
-      setEmpleadosSeleccionados(empleadosDisponibles.map(e => e.id));
-    }
-  };
-
-  const submitMasivo = async () => {
-    if (!cuadrillaSeleccionada || empleadosSeleccionados.length === 0) return;
-    setLoadingMasivo(true);
-    try {
-      await Promise.all(
-        empleadosSeleccionados.map(empleadoId =>
-          api.post("/miembros-cuadrilla", {
-            empleadoId,
-            cuadrillaId: cuadrillaSeleccionada,
-            fechaIngreso: fechaMasiva || null,
-            estado: "ACTIVO",
-          })
-        )
-      );
-      qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] });
-      resetMasivo();
-    } finally {
-      setLoadingMasivo(false);
-    }
-  };
 
   const formatFecha = (fecha: string | null | undefined) => {
     if (!fecha) return "-";
@@ -145,22 +76,11 @@ export default function MiembroCuadrillaModule() {
           <h1 className="text-2xl font-bold text-gray-900 m-0">Miembros de Cuadrilla</h1>
           <p className="text-sm text-gray-500 mt-1">Gestione la asignación de empleados a cuadrillas de trabajo.</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setOpenMasivo(true)}
-            className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer"
-          >
-          Asignación masiva
-          </button>
-          <button
-            onClick={() => { reset(); setOpen(true); }}
-            className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0"
-          >
-            + Nuevo Miembro
-          </button>
-        </div>
+        <button onClick={() => { reset(); setOpen(true); }} className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
+          + Nuevo Miembro
+        </button>
       </div>
- 
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
@@ -256,7 +176,7 @@ export default function MiembroCuadrillaModule() {
         )}
       </div>
 
-      {/* Modal individual */}
+      {/* Modal */}
       <Modal open={open} title={editId ? "Editar Miembro" : "Nuevo Miembro de Cuadrilla"} subtitle="Asigne un empleado a una cuadrilla de trabajo." onClose={reset}>
         <form onSubmit={submit}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -299,122 +219,6 @@ export default function MiembroCuadrillaModule() {
             </button>
           </div>
         </form>
-      </Modal>
-
-      {/* Modal asignación masiva */}
-      <Modal open={openMasivo} title="Asignación masiva" subtitle="Selecciona una cuadrilla y elige los empleados a asignar." onClose={resetMasivo} width={640}>
-        <div className="flex flex-col gap-5">
-          {/* Paso 1 — Cuadrilla y fecha */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Cuadrilla *
-              <select
-                value={cuadrillaSeleccionada || ""}
-                onChange={e => { setCuadrillaSeleccionada(Number(e.target.value)); setEmpleadosSeleccionados([]); }}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal"
-              >
-                <option value="">Seleccione cuadrilla...</option>
-                {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Fecha de ingreso
-              <input
-                type="date"
-                value={fechaMasiva}
-                onChange={e => setFechaMasiva(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal"
-              />
-            </label>
-          </div>
-
-          {/* Paso 2 — Lista de empleados */}
-          {cuadrillaSeleccionada > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Empleados disponibles
-                  {empleadosSeleccionados.length > 0 && (
-                    <span className="ml-2 bg-[#2D6A4F] text-white text-xs px-2 py-0.5 rounded-full font-normal normal-case">
-                      {empleadosSeleccionados.length} seleccionados
-                    </span>
-                  )}
-                </p>
-                <button
-                  type="button"
-                  onClick={toggleTodos}
-                  className="text-xs text-[#2D6A4F] font-semibold bg-transparent border-0 cursor-pointer hover:underline"
-                >
-                  {empleadosSeleccionados.length === empleadosDisponibles.length && empleadosDisponibles.length > 0 ? "Deseleccionar todos" : "Seleccionar todos"}
-                </button>
-              </div>
-
-              {/* Buscador */}
-              <input
-                placeholder="Buscar empleado..."
-                value={searchMasivo}
-                onChange={e => setSearchMasivo(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 mb-3"
-              />
-
-              {/* Lista */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
-                {empleadosDisponibles.length === 0 ? (
-                  <p className="text-center py-8 text-sm text-gray-400">
-                    {empleadosYaAsignados.length > 0 ? "Todos los empleados activos ya están asignados a esta cuadrilla" : "Sin empleados disponibles"}
-                  </p>
-                ) : (
-                  empleadosDisponibles.map((e, i) => (
-                    <div
-                      key={e.id}
-                      onClick={() => toggleEmpleado(e.id)}
-                      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                        i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } ${empleadosSeleccionados.includes(e.id) ? "bg-green-50" : "hover:bg-gray-100"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={empleadosSeleccionados.includes(e.id)}
-                        onChange={() => toggleEmpleado(e.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F] cursor-pointer"
-                        onClick={ev => ev.stopPropagation()}
-                      />
-                      <div className="w-8 h-8 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                        {e.primerNombre[0]}{e.primerApellido[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{e.primerNombre} {e.primerApellido}</p>
-                        <p className="text-xs text-gray-400 font-mono">{e.codigoEmpleado ?? "-"}</p>
-                      </div>
-                      {empleadosSeleccionados.includes(e.id) && (
-                        <span className="text-[#2D6A4F] text-sm">✓</span>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Ya asignados */}
-              {empleadosYaAsignados.length > 0 && (
-                <p className="text-xs text-gray-400 mt-2">
-                  {empleadosYaAsignados.length} empleado(s) ya asignados a esta cuadrilla no aparecen en la lista.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
-            <button type="button" onClick={resetMasivo} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button
-              type="button"
-              onClick={submitMasivo}
-              disabled={loadingMasivo || !cuadrillaSeleccionada || empleadosSeleccionados.length === 0}
-              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50"
-            >
-              {loadingMasivo ? "Asignando..." : `Asignar ${empleadosSeleccionados.length > 0 ? `(${empleadosSeleccionados.length})` : ""}`}
-            </button>
-          </div>
-        </div>
       </Modal>
     </div>
   );

@@ -4,20 +4,10 @@ import api from "@/api";
 import { useAuthStore } from "@/store/authStore";
 import Badge from "@/components/ui/badge";
 
-type OrdenTrabajo = { id: number; numeroOrden: string; cantidadRequerida: number; pagoUnitario: number; fechaLimite: string; estado: string; modalidad: string; };
-type AsignacionOrden = { id: number; ordenTrabajoId: number; cuadrillaId: number; cantidadAsignada: number; estado: string; };
-type Reporte = { id: number; cantidadRecibida: number; cantidadAprobada: number; estadoRevision: string; observaciones?: string; fechaRevision: string; fecha_creacion: string; };
-type Pago = { id: number; numeroPago: number; montoTotal: number; estado: string; fechaPago: string; metodoPago: string; numeroLote: string; cantidadAprobada: number; };
-type Panel = {
-  miembro: any;
-  asignacionOrden: AsignacionOrden | null;
-  ordenTrabajo: OrdenTrabajo | null;
-  ultimoReporte: Reporte | null;
-  historial: Reporte[];
-  pagos: Pago[];
-  yaReporto: boolean;
-  ordenInvalida?: boolean;
-};
+type Asignacion = { id: number; metaIndividual: number; estado: string; cuadrillaId: number; };
+type Reporte = { id: number; cantidadRecibida: number; cantidadAprobada: number; estadoRevision: string; observaciones?: string; fechaRevision: string; asignacionEmpleadoId: number; createdAt: string; };
+type Pago = { id: number; numeroPago: number; montoTotal: number; estado: string; fechaPago: string; metodoPago: string; numeroLote: string; cantidadAprobada: number; metaIndividual: number; };
+type Panel = { miembro: any; asignacion: Asignacion | null; ultimoReporte: Reporte | null; historial: Reporte[]; pagos: Pago[]; };
 
 const fetchPanel = (empleadoId: number) =>
   api.get<{ data: Panel }>(`/empleados/panel/${empleadoId}`).then(r => r.data.data);
@@ -42,15 +32,12 @@ export default function PanelOperario() {
   });
 
   const crear = useMutation({
-    mutationFn: (data: any) => api.post(`/empleados/${empleado!.id}/reporte`, data),
+    mutationFn: (data: any) => api.post("/production-review", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["panel", empleado?.id] });
       setCantidad("");
-      setError("");
     },
-    onError: (e: any) => {
-      setError(e?.response?.data?.message ?? "Error al enviar el reporte. Intenta de nuevo.");
-    },
+    onError: () => setError("Error al enviar el reporte. Intenta de nuevo."),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -58,16 +45,25 @@ export default function PanelOperario() {
     setError("");
     const num = Number(cantidad);
     if (!num || num <= 0) { setError("Ingresa una cantidad válida mayor a 0."); return; }
-    if (num > 9999) { setError("La cantidad parece incorrecta. Verifica el dato ingresado."); return; }
+    if (!panel?.asignacion) return;
+    if (num > panel.asignacion.metaIndividual * 3) {
+      setError(`La cantidad no puede superar ${panel.asignacion.metaIndividual * 3} piezas.`);
+      return;
+    }
     crear.mutate({
       cantidadRecibida: num,
-      reportadorId: empleado!.id,
+      cantidadAprobada: 0,
+      estadoRevision: "PENDIENTE_REVISION",
+      observaciones: "",
+      fechaRevision: new Date().toISOString().split("T")[0],
+      asignacionEmpleadoId: panel.asignacion.id,
     });
   };
 
-  if (isLoading) return (
-    <div className="max-w-2xl mx-auto py-20 text-center text-gray-400 text-sm">Cargando tu panel...</div>
-  );
+  const superaMeta = panel?.asignacion && Number(cantidad) > panel.asignacion.metaIndividual;
+  const yaReporto = panel?.ultimoReporte?.estadoRevision === "PENDIENTE_REVISION";
+
+  if (isLoading) return <div className="max-w-2xl mx-auto py-20 text-center text-gray-400 text-sm">Cargando tu panel...</div>;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -101,8 +97,8 @@ export default function PanelOperario() {
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
         {[
           { key: "panel", label: "Mi reporte" },
-          { key: "historial", label: `Historial (${panel?.historial?.length ?? 0})` },
-          { key: "pagos", label: `Mis pagos (${panel?.pagos?.length ?? 0})` },
+          { key: "historial", label: `Historial (${panel?.historial.length ?? 0})` },
+          { key: "pagos", label: `Mis pagos (${panel?.pagos.length ?? 0})` },
         ].map(t => (
           <button
             key={t.key}
@@ -119,81 +115,29 @@ export default function PanelOperario() {
       {/* TAB: Mi reporte */}
       {tab === "panel" && (
         <>
-          {/* Sin cuadrilla */}
-          {!panel?.miembro && (
+          {!panel?.asignacion ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
               <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
                 </svg>
               </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Sin cuadrilla asignada</h2>
-              <p className="text-sm text-gray-500">No perteneces a ninguna cuadrilla activa. Consulta con tu supervisor.</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Sin meta asignada</h2>
+              <p className="text-sm text-gray-500">Tu jefe de cuadrilla aún no ha asignado una meta. Consulta con tu supervisor.</p>
             </div>
-          )}
-
-          {/* Sin orden activa */}
-          {panel?.miembro && !panel?.asignacionOrden && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
-              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Sin orden activa</h2>
-              <p className="text-sm text-gray-500">Tu cuadrilla no tiene una orden de trabajo asignada en este momento.</p>
-            </div>
-          )}
-
-          {/* Orden inválida */}
-          {panel?.ordenInvalida && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
-              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Orden no disponible</h2>
-              <p className="text-sm text-gray-500">
-                La orden asignada no está en proceso o no es de modalidad DESTAJO.
-                Estado actual: <span className="font-semibold">{panel.ordenTrabajo?.estado ?? "-"}</span>
-              </p>
-            </div>
-          )}
-
-          {/* Panel activo */}
-          {panel?.asignacionOrden && panel?.ordenTrabajo && !panel?.ordenInvalida && (
+          ) : (
             <>
-              {/* Card orden activa */}
+              {/* Card meta */}
               <div className="bg-[#2D6A4F] rounded-2xl p-6 mb-6 text-white">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Orden activa</p>
+                <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Tu meta asignada</p>
                 <div className="flex items-end gap-3 mb-3">
-                  <span className="text-3xl font-black">{panel.ordenTrabajo.numeroOrden}</span>
+                  <span className="text-5xl font-black">{panel.asignacion.metaIndividual}</span>
+                  <span className="text-white/70 text-sm mb-2">piezas por ciclo</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div className="bg-white/10 rounded-xl p-3">
-                    <p className="text-white/60 text-xs mb-1">Modalidad</p>
-                    <p className="text-white font-bold text-sm">{panel.ordenTrabajo.modalidad}</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-3">
-                    <p className="text-white/60 text-xs mb-1">Cantidad requerida</p>
-                    <p className="text-white font-bold text-sm">{panel.ordenTrabajo.cantidadRequerida} piezas</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-3">
-                    <p className="text-white/60 text-xs mb-1">Pago unitario</p>
-                    <p className="text-white font-bold text-sm">Q{Number(panel.ordenTrabajo.pagoUnitario).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-3">
-                    <p className="text-white/60 text-xs mb-1">Cuadrilla</p>
-                    <p className="text-white font-bold text-sm">#{panel.asignacionOrden.cuadrillaId}</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-300" />
+                  <span className="text-white/80 text-xs">Cuadrilla #{panel.asignacion.cuadrillaId} · Asignación #{panel.asignacion.id}</span>
                 </div>
-                {panel.ordenTrabajo.fechaLimite && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <div className="w-2 h-2 rounded-full bg-yellow-300" />
-                    <span className="text-white/70 text-xs">Fecha límite: {formatFecha(panel.ordenTrabajo.fechaLimite)}</span>
-                  </div>
-                )}
               </div>
 
               {/* Último reporte */}
@@ -202,10 +146,7 @@ export default function PanelOperario() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Último reporte</p>
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {panel.ultimoReporte.cantidadRecibida}
-                        <span className="text-sm font-normal text-gray-400 ml-2">piezas reportadas</span>
-                      </p>
+                      <p className="text-2xl font-bold text-gray-900">{panel.ultimoReporte.cantidadRecibida} <span className="text-sm font-normal text-gray-400">piezas reportadas</span></p>
                       {panel.ultimoReporte.estadoRevision === "APROBADO" && (
                         <p className="text-sm text-[#2D6A4F] font-medium mt-1">{panel.ultimoReporte.cantidadAprobada} piezas aprobadas</p>
                       )}
@@ -222,42 +163,73 @@ export default function PanelOperario() {
               {/* Formulario */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Reportar producción</p>
-                <form onSubmit={handleSubmit}>
-                  <label className="flex flex-col gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
-                    Cantidad producida
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="1"
-                        max="9999"
-                        placeholder="Ej. 85"
-                        value={cantidad}
-                        onChange={e => { setCantidad(e.target.value); setError(""); }}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-2xl font-bold text-gray-900 outline-none focus:border-[#2D6A4F] focus:bg-white transition-all font-normal normal-case tracking-normal"
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">piezas</span>
-                    </div>
-                  </label>
-
-                  {error && (
-                    <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
-                      <p className="text-xs text-red-600">{error}</p>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={crear.isPending || !cantidad}
-                    className="w-full bg-[#2D6A4F] text-white rounded-xl py-3.5 font-bold text-sm border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {crear.isPending ? "Enviando..." : "Enviar reporte"}
-                    {!crear.isPending && (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                {yaReporto ? (
+                  <div className="text-center py-6">
+                    <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                       </svg>
+                    </div>
+                    <p className="font-semibold text-gray-900 mb-1">Reporte enviado</p>
+                    <p className="text-sm text-gray-500">Tu reporte está pendiente de revisión. No puedes editarlo una vez enviado.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit}>
+                    <label className="flex flex-col gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                      Cantidad producida
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Ej. 85"
+                          value={cantidad}
+                          onChange={e => { setCantidad(e.target.value); setError(""); }}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-2xl font-bold text-gray-900 outline-none focus:border-[#2D6A4F] focus:bg-white transition-all font-normal normal-case tracking-normal"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">piezas</span>
+                      </div>
+                    </label>
+
+                    {superaMeta && !error && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+                        </svg>
+                        <p className="text-xs text-amber-700">La cantidad supera tu meta de {panel.asignacion.metaIndividual} piezas. Puedes continuar si es correcto.</p>
+                      </div>
                     )}
-                  </button>
-                </form>
+
+                    {error && (
+                      <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
+                        <p className="text-xs text-red-600">{error}</p>
+                      </div>
+                    )}
+
+                    {cantidad && Number(cantidad) > 0 && (
+                      <div className="mb-4">
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                          <span>Progreso vs meta</span>
+                          <span>{Math.min(Math.round((Number(cantidad) / panel.asignacion.metaIndividual) * 100), 100)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all ${Number(cantidad) > panel.asignacion.metaIndividual ? "bg-amber-400" : "bg-[#2D6A4F]"}`}
+                            style={{ width: `${Math.min((Number(cantidad) / panel.asignacion.metaIndividual) * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={crear.isPending || !cantidad}
+                      className="w-full bg-[#2D6A4F] text-white rounded-xl py-3.5 font-bold text-sm border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {crear.isPending ? "Enviando..." : "Enviar reporte"}
+                      {!crear.isPending && <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>}
+                    </button>
+                  </form>
+                )}
               </div>
             </>
           )}
@@ -267,7 +239,7 @@ export default function PanelOperario() {
       {/* TAB: Historial */}
       {tab === "historial" && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {!panel?.historial?.length ? (
+          {!panel?.historial.length ? (
             <p className="text-center py-12 text-gray-400 text-sm">Sin reportes anteriores</p>
           ) : (
             <table className="w-full text-sm border-collapse">
@@ -297,10 +269,11 @@ export default function PanelOperario() {
       {/* TAB: Pagos */}
       {tab === "pagos" && (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {!panel?.pagos?.length ? (
+          {!panel?.pagos.length ? (
             <p className="text-center py-12 text-gray-400 text-sm">Sin pagos registrados</p>
           ) : (
             <>
+              {/* Resumen */}
               <div className="grid grid-cols-2 gap-4 p-5 border-b border-gray-100">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total pagado</p>
@@ -313,6 +286,7 @@ export default function PanelOperario() {
                   <p className="text-2xl font-bold text-gray-900">{panel.pagos.length}</p>
                 </div>
               </div>
+
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-50">

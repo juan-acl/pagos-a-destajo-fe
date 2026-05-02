@@ -48,12 +48,12 @@ type AssignmentPanel = {
     nombre: string;
     codigoCuadrilla?: string | null;
   } | null;
-  miembros: PanelMember[];
+  miembros?: PanelMember[];
   assignedTotal: number;
   remaining: number;
   allowEdit: boolean;
-  autoDistribution: PanelAuto[];
-  existingAssignments: AssignmentItem[];
+  autoDistribution?: PanelAuto[];
+  existingAssignments?: AssignmentItem[];
 };
 
 type ManualMeta = Record<number, number | "">;
@@ -63,8 +63,11 @@ type ManualMetaByPanel = Record<number, ManualMeta>;
 const buildInitialMetas = (panel: AssignmentPanel | null): ManualMeta => {
   if (!panel) return {};
 
-  if (panel.existingAssignments.length > 0) {
-    return panel.existingAssignments.reduce<ManualMeta>((acc, item) => {
+  const existingAssignments = panel.existingAssignments ?? [];
+  const autoDistribution = panel.autoDistribution ?? [];
+
+  if (existingAssignments.length > 0) {
+    return existingAssignments.reduce<ManualMeta>((acc, item) => {
       if (item.empleadoId != null) {
         acc[item.empleadoId] = item.metaIndividual;
       }
@@ -72,7 +75,7 @@ const buildInitialMetas = (panel: AssignmentPanel | null): ManualMeta => {
     }, {});
   }
 
-  return panel.autoDistribution.reduce<ManualMeta>((acc, item) => {
+  return autoDistribution.reduce<ManualMeta>((acc, item) => {
     acc[item.empleadoId] = item.metaIndividual;
     return acc;
   }, {});
@@ -161,7 +164,7 @@ export default function EmployeeAssignmentPage() {
         asignacionOrdenCuadrillaId: panelId,
         modo: "MANUAL",
         metas:
-          selectedPanel?.miembros.map((member) => ({
+          (selectedPanel?.miembros ?? []).map((member) => ({
             empleadoId: member.empleadoId,
             metaIndividual: Number(metas[member.empleadoId] || 0),
           })) ?? [],
@@ -175,7 +178,7 @@ export default function EmployeeAssignmentPage() {
 
   const applyAutoPreview = () => {
     if (!selectedPanel) return;
-    const next = selectedPanel.autoDistribution.reduce<ManualMeta>((acc, item) => {
+    const next = (selectedPanel.autoDistribution ?? []).reduce<ManualMeta>((acc, item) => {
       acc[item.empleadoId] = item.metaIndividual;
       return acc;
     }, {});
@@ -293,7 +296,7 @@ export default function EmployeeAssignmentPage() {
                   Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong>
                 </p>
                 <p>
-                  Miembros activos: <strong>{selectedPanel.miembros.length}</strong>
+                  Miembros activos: <strong>{selectedPanel.miembros?.length ?? 0}</strong>
                 </p>
               </div>
 
@@ -398,8 +401,8 @@ export default function EmployeeAssignmentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedPanel.miembros.map((member, index) => {
-                    const current = selectedPanel.existingAssignments.find(
+                  {(selectedPanel.miembros ?? []).map((member, index) => {
+                    const current = (selectedPanel.existingAssignments ?? []).find(
                       (item) => item.empleadoId === member.empleadoId,
                     );
 

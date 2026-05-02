@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
-import type { Modalidad, DetalleEmpleadoDia } from "@/types/planilla.types";
-import { isPreviewDia } from "@/types/planilla.types";
 import DataTable from "@/components/commons/DataTable";
 import { s } from "@/styles/planilla.styles";
 import {
@@ -30,31 +28,6 @@ import { useFilter } from "@/hooks/useFilter";
 import { getErrorMessage } from "@/utils/api";
 import { BarChart, CircleCheckBig, CircleX } from "lucide-react";
 
-const today = new Date().toISOString().split("T")[0];
-
-function modalidadLabel(m?: Modalidad | string | null) {
-  return m === "PAGO_POR_DIAS" ? "Por día" : "Destajo";
-}
-
-function modalidadColor(m?: Modalidad | string | null) {
-  return m === "PAGO_POR_DIAS" ? "#d97706" : "#16a34a";
-}
-
-function planillaHeadersDestajo() {
-  return [
-    "Empleado",
-    "Meta ind.",
-    "Prod. real",
-    "Cumpl. %",
-    "Monto meta",
-    "Monto real",
-  ];
-}
-
-function planillaHeadersDia() {
-  return ["Empleado", "Días reconocidos", "Tarifa/día", "Monto individual"];
-}
-
 function estadoBadge(estado: string) {
   if (estado === "PENDIENTE")
     return <span style={s.badgePendiente}>{estado}</span>;
@@ -63,8 +36,6 @@ function estadoBadge(estado: string) {
   if (estado === "PROCESANDO")
     return <span style={s.badgeProcesando}>{estado}</span>;
   if (estado === "PAGADO") return <span style={s.activo}>{estado}</span>;
-  if (estado === "PAGO_REALIZADO")
-    return <span style={s.activo}>PAGO REALIZADO</span>;
   if (estado === "RECHAZADO") return <span style={s.inactivo}>{estado}</span>;
   return <span style={s.badgeGris}>{estado}</span>;
 }
@@ -91,10 +62,6 @@ export default function Planilla() {
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Rango de fechas para PAGO_POR_DIAS
-  const [fechaInicio, setFechaInicio] = useState(today);
-  const [fechaFin, setFechaFin] = useState(today);
-
   const { data = [], isLoading } = useQuery({
     queryKey: ["planilla"],
     queryFn: fetchPlanillas,
@@ -117,25 +84,10 @@ export default function Planilla() {
     retry: false,
   });
 
-  const esPorDias = selectedOrden?.modalidad === "PAGO_POR_DIAS";
-
   const { data: preview, isLoading: previewLoading } = useQuery({
-    queryKey: [
-      "planilla-preview-orden",
-      selectedOrden?.id,
-      esPorDias ? fechaInicio : null,
-      esPorDias ? fechaFin : null,
-    ],
-    queryFn: () =>
-      fetchPreviewByOrden(
-        selectedOrden!.id,
-        esPorDias ? fechaInicio : undefined,
-        esPorDias ? fechaFin : undefined,
-      ),
-    enabled:
-      !!selectedOrden &&
-      generarOpen &&
-      (!esPorDias || (!!fechaInicio && !!fechaFin)),
+    queryKey: ["planilla-preview-orden", selectedOrden?.id],
+    queryFn: () => fetchPreviewByOrden(selectedOrden!.id),
+    enabled: !!selectedOrden && generarOpen,
     retry: false,
   });
 
@@ -180,11 +132,7 @@ export default function Planilla() {
   };
 
   const mutGenerar = useMutation({
-    mutationFn: () =>
-      generarPlanillaByOrden(
-        selectedOrden!.id,
-        esPorDias ? { fechaInicio, fechaFin } : undefined,
-      ),
+    mutationFn: () => generarPlanillaByOrden(selectedOrden!.id),
     onSuccess: () => {
       invalidate();
       setGenerarOpen(false);
@@ -240,27 +188,7 @@ export default function Planilla() {
   };
 
   const columns: ColumnDef<Planilla, unknown>[] = [
-    {
-      accessorKey: "codigoPlanilla",
-      header: "Código",
-      cell: (info) =>
-        (info.getValue() as string | null) ??
-        `#${(info.row.original as Planilla).numeroPago}`,
-    },
-    {
-      accessorKey: "modalidad",
-      header: "Modalidad",
-      cell: (info) => {
-        const m = info.getValue() as Modalidad | null;
-        return (
-          <span
-            style={{ color: modalidadColor(m), fontWeight: 600, fontSize: 12 }}
-          >
-            {modalidadLabel(m)}
-          </span>
-        );
-      },
-    },
+    { accessorKey: "numeroPago", header: "N° Pago" },
     {
       accessorKey: "loteProduccion.numeroLote",
       header: "Lote",
@@ -384,9 +312,8 @@ export default function Planilla() {
               <option value={0}>Seleccionar orden...</option>
               {ordenes.map((o) => (
                 <option key={o.id} value={o.id}>
-                  #{o.numeroOrden} [{modalidadLabel(o.modalidad)}] — Q{" "}
-                  {Number(o.pagoUnitario).toFixed(2)}
-                  {o.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}
+                  Orden: #{o.numeroOrden} — Q{" "}
+                  {Number(o.pagoUnitario).toFixed(2)} / pieza
                 </option>
               ))}
             </select>
@@ -400,7 +327,6 @@ export default function Planilla() {
                 gap: "16px",
                 color: "#64748b",
                 fontSize: "13px",
-                flexWrap: "wrap",
               }}
             >
               <span>
@@ -408,44 +334,9 @@ export default function Planilla() {
                 <strong>{selectedOrden.cantidadRequerida}</strong>
               </span>
               <span>
-                Modalidad:{" "}
-                <strong
-                  style={{ color: modalidadColor(selectedOrden?.modalidad) }}
-                >
-                  {modalidadLabel(selectedOrden?.modalidad)}
-                </strong>
-              </span>
-              <span>
                 Estado: <strong>{selectedOrden.estado}</strong>
               </span>
             </div>
-          )}
-
-          {selectedOrden?.modalidad === "PAGO_POR_DIAS" && (
-            <>
-              <label style={s.label}>
-                Fecha inicio *
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  max={fechaFin}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  style={s.input}
-                  required
-                />
-              </label>
-              <label style={s.label}>
-                Fecha fin *
-                <input
-                  type="date"
-                  value={fechaFin}
-                  min={fechaInicio}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  style={s.input}
-                  required
-                />
-              </label>
-            </>
           )}
         </div>
 
@@ -462,149 +353,91 @@ export default function Planilla() {
                     Integrantes de la cuadrilla
                   </span>
                   <span style={s.previewMonto}>
-                    <strong
-                      style={{ color: modalidadColor(selectedOrden.modalidad) }}
-                    >
-                      {modalidadLabel(selectedOrden.modalidad)}
-                    </strong>
+                    Pago unit.:{" "}
+                    <strong>Q {preview.pagoUnitario.toFixed(2)}</strong>
                     &nbsp;·&nbsp;Total a pagar:{" "}
                     <strong>Q {preview.montoTotal.toFixed(2)}</strong>
                   </span>
                 </div>
-
-                {isPreviewDia(preview) ? (
-                  <table style={s.previewTable}>
-                    <thead>
-                      <tr>
-                        {planillaHeadersDia().map((h) => (
-                          <th key={h} style={s.previewTh}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.detalle.map((d: DetalleEmpleadoDia) => (
+                <table style={s.previewTable}>
+                  <thead>
+                    <tr>
+                      {[
+                        "Empleado",
+                        "Meta ind.",
+                        "Prod. real",
+                        "Cumpl. %",
+                        "Monto meta",
+                        "Monto real",
+                      ].map((h) => (
+                        <th key={h} style={s.previewTh}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.detalle.map((d) => {
+                      const cumpl =
+                        d.metaIndividual > 0
+                          ? Math.round(
+                              (d.cantidadAprobada / d.metaIndividual) * 100,
+                            )
+                          : 0;
+                      const cumplStyle: React.CSSProperties = {
+                        ...s.previewTd,
+                        color:
+                          cumpl >= 100
+                            ? "#16a34a"
+                            : cumpl >= 75
+                              ? "#d97706"
+                              : "#dc2626",
+                        fontWeight: 600,
+                      };
+                      return (
                         <tr key={d.empleadoId}>
                           <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                          <td
-                            style={{
-                              ...s.previewTd,
-                              fontWeight: 600,
-                              color: "#2D6A4F",
-                            }}
-                          >
-                            {d.diasReconocidos}
+                          <td style={s.previewTd}>{d.metaIndividual}</td>
+                          <td style={s.previewTd}>{d.cantidadAprobada}</td>
+                          <td style={cumplStyle}>{cumpl}%</td>
+                          <td style={s.previewTd}>
+                            Q {d.montoMeta.toFixed(2)}
                           </td>
                           <td style={s.previewTd}>
-                            Q {d.montoDiario.toFixed(2)}
-                          </td>
-                          <td style={{ ...s.previewTd, fontWeight: 700 }}>
-                            Q {d.montoIndividual.toFixed(2)}
+                            Q {d.montoRealizado.toFixed(2)}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td
-                          colSpan={3}
-                          style={{
-                            ...s.previewTh,
-                            textAlign: "right",
-                            paddingTop: "10px",
-                          }}
-                        >
-                          Total a pagar:
-                        </td>
-                        <td
-                          style={{
-                            ...s.previewTh,
-                            color: "#1e293b",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Q {preview.montoTotal.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                ) : (
-                  <table style={s.previewTable}>
-                    <thead>
-                      <tr>
-                        {planillaHeadersDestajo().map((h) => (
-                          <th key={h} style={s.previewTh}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.detalle.map((d) => {
-                        const cumpl =
-                          d.metaIndividual > 0
-                            ? Math.round(
-                                (d.cantidadAprobada / d.metaIndividual) * 100,
-                              )
-                            : 0;
-                        const cumplStyle: React.CSSProperties = {
-                          ...s.previewTd,
-                          color:
-                            cumpl >= 100
-                              ? "#16a34a"
-                              : cumpl >= 75
-                                ? "#d97706"
-                                : "#dc2626",
-                          fontWeight: 600,
-                        };
-                        return (
-                          <tr key={d.empleadoId}>
-                            <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                            <td style={s.previewTd}>{d.metaIndividual}</td>
-                            <td style={s.previewTd}>{d.cantidadAprobada}</td>
-                            <td style={cumplStyle}>{cumpl}%</td>
-                            <td style={s.previewTd}>
-                              Q {d.montoMeta.toFixed(2)}
-                            </td>
-                            <td style={s.previewTd}>
-                              Q {d.montoRealizado.toFixed(2)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td
-                          colSpan={5}
-                          style={{
-                            ...s.previewTh,
-                            textAlign: "right",
-                            paddingTop: "10px",
-                          }}
-                        >
-                          Total a pagar:
-                        </td>
-                        <td
-                          style={{
-                            ...s.previewTh,
-                            color: "#1e293b",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Q {preview.montoTotal.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                )}
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td
+                        colSpan={5}
+                        style={{
+                          ...s.previewTh,
+                          textAlign: "right",
+                          paddingTop: "10px",
+                        }}
+                      >
+                        Total a pagar:
+                      </td>
+                      <td
+                        style={{
+                          ...s.previewTh,
+                          color: "#1e293b",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Q {preview.montoTotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </>
             ) : (
               <p style={{ fontSize: "13px", color: "#ef4444" }}>
-                {esPorDias && (!fechaInicio || !fechaFin)
-                  ? "Seleccione el rango de fechas para calcular."
-                  : "No se pudo obtener la información para esta orden."}
+                No se pudo obtener la información para esta orden.
               </p>
             )}
           </div>
@@ -633,64 +466,12 @@ export default function Planilla() {
         title="Ejecutar Pago"
         subtitle={
           selectedPlanilla
-            ? `Planilla #${selectedPlanilla.codigoPlanilla ?? selectedPlanilla.numeroPago} — Total: Q ${selectedPlanilla.montoTotal.toFixed(2)}`
+            ? `Planilla #${selectedPlanilla.numeroPago} — Total: Q ${selectedPlanilla.montoTotal.toFixed(2)}`
             : "Complete la evidencia del pago."
         }
         onClose={() => setEjecutarOpen(false)}
       >
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
-
-        {selectedPlanilla && (
-          <div
-            style={{
-              marginBottom: "14px",
-              padding: "10px 14px",
-              borderRadius: "6px",
-              background:
-                selectedPlanilla.modalidad === "PAGO_POR_DIAS"
-                  ? "#fef3c7"
-                  : "#dcfce7",
-              border: `1px solid ${selectedPlanilla.modalidad === "PAGO_POR_DIAS" ? "#fcd34d" : "#86efac"}`,
-            }}
-          >
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color:
-                  selectedPlanilla.modalidad === "PAGO_POR_DIAS"
-                    ? "#92400e"
-                    : "#166534",
-              }}
-            >
-              Modalidad: {modalidadLabel(selectedPlanilla.modalidad)}
-            </span>
-            {selectedPlanilla.modalidad === "PAGO_POR_DIAS" ? (
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "12px",
-                  color: "#92400e",
-                }}
-              >
-                Pago directo por día — no requiere validación de lotes ni
-                revisiones.
-              </p>
-            ) : (
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "12px",
-                  color: "#166534",
-                }}
-              >
-                Pago por destajo — se verificarán revisiones y lotes aprobados
-                antes de procesar.
-              </p>
-            )}
-          </div>
-        )}
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -750,77 +531,6 @@ export default function Planilla() {
                 </label>
               </>
             )}
-
-            {evidencia.metodoPago === "TRANSFERENCIA" && (
-              <>
-                <label style={s.label}>
-                  Banco destino *
-                  <input
-                    name="bancoDestino"
-                    value={evidencia.bancoDestino}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-                <label style={s.label}>
-                  Número de cuenta *
-                  <input
-                    name="numeroCuenta"
-                    value={evidencia.numeroCuenta}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                  Número de transferencia *
-                  <input
-                    name="numeroTransferencia"
-                    value={evidencia.numeroTransferencia}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-              </>
-            )}
-
-            {evidencia.metodoPago === "CHEQUE" && (
-              <>
-                <label style={s.label}>
-                  Número de cheque *
-                  <input
-                    name="numeroCheque"
-                    value={evidencia.numeroCheque}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-                <label style={s.label}>
-                  Banco emisor *
-                  <input
-                    name="bancoEmisor"
-                    value={evidencia.bancoEmisor}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                  Fecha del cheque *
-                  <input
-                    name="fechaCheque"
-                    type="date"
-                    value={evidencia.fechaCheque}
-                    onChange={changeEvidencia}
-                    required
-                    style={s.input}
-                  />
-                </label>
-              </>
-            )}
           </div>
 
           <div style={s.row}>
@@ -848,7 +558,7 @@ export default function Planilla() {
         title="Resultados de producción"
         subtitle={
           detalle
-            ? `${detalle.planilla.codigoPlanilla ?? `#${detalle.planilla.numeroPago}`} · ${modalidadLabel(detalle.modalidad)} · Q ${detalle.pagoUnitario.toFixed(2)}${detalle.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}${detalle.lote ? ` · Lote ${detalle.lote.numeroLote}` : ""}`
+            ? `Planilla #${detalle.planilla.numeroPago} · Lote ${detalle.lote.numeroLote} · Pago unit.: Q ${detalle.pagoUnitario.toFixed(2)}`
             : "Cargando..."
         }
         onClose={() => setDetalleId(null)}
@@ -859,131 +569,79 @@ export default function Planilla() {
           </p>
         ) : detalle ? (
           <>
-            {detalle.modalidad === "PAGO_POR_DIAS" ? (
-              <table style={s.previewTable}>
-                <thead>
-                  <tr>
-                    {planillaHeadersDia().map((h) => (
-                      <th key={h} style={s.previewTh}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.detalle.map((d: any) => (
+            <table style={s.previewTable}>
+              <thead>
+                <tr>
+                  {[
+                    "Empleado",
+                    "Meta ind.",
+                    "Prod. real",
+                    "Cumpl. %",
+                    "Monto meta",
+                    "Monto real",
+                  ].map((h) => (
+                    <th key={h} style={s.previewTh}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detalle.detalle.map((d) => {
+                  const cumpl =
+                    d.metaIndividual > 0
+                      ? Math.round(
+                          (d.cantidadAprobada / d.metaIndividual) * 100,
+                        )
+                      : 0;
+                  const cumplStyle: React.CSSProperties = {
+                    ...s.previewTd,
+                    color:
+                      cumpl >= 100
+                        ? "#16a34a"
+                        : cumpl >= 75
+                          ? "#d97706"
+                          : "#dc2626",
+                    fontWeight: 600,
+                  };
+                  return (
                     <tr key={d.empleadoId}>
                       <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                      <td
-                        style={{
-                          ...s.previewTd,
-                          fontWeight: 600,
-                          color: "#2D6A4F",
-                        }}
-                      >
-                        {d.diasReconocidos}
-                      </td>
+                      <td style={s.previewTd}>{d.metaIndividual}</td>
+                      <td style={s.previewTd}>{d.cantidadAprobada}</td>
+                      <td style={cumplStyle}>{cumpl}%</td>
+                      <td style={s.previewTd}>Q {d.montoMeta.toFixed(2)}</td>
                       <td style={s.previewTd}>
-                        Q {Number(d.montoDiario).toFixed(2)}
-                      </td>
-                      <td style={{ ...s.previewTd, fontWeight: 700 }}>
-                        Q {Number(d.montoIndividual).toFixed(2)}
+                        Q {d.montoRealizado.toFixed(2)}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td
-                      colSpan={3}
-                      style={{
-                        ...s.previewTh,
-                        textAlign: "right",
-                        paddingTop: "10px",
-                      }}
-                    >
-                      Total a pagar:
-                    </td>
-                    <td
-                      style={{
-                        ...s.previewTh,
-                        color: "#1e293b",
-                        fontSize: "14px",
-                      }}
-                    >
-                      Q {detalle.montoTotal.toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            ) : (
-              <table style={s.previewTable}>
-                <thead>
-                  <tr>
-                    {planillaHeadersDestajo().map((h) => (
-                      <th key={h} style={s.previewTh}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.detalle.map((d: any) => {
-                    const cumpl =
-                      d.metaIndividual > 0
-                        ? Math.round(
-                            (d.cantidadAprobada / d.metaIndividual) * 100,
-                          )
-                        : 0;
-                    const cumplStyle: React.CSSProperties = {
-                      ...s.previewTd,
-                      color:
-                        cumpl >= 100
-                          ? "#16a34a"
-                          : cumpl >= 75
-                            ? "#d97706"
-                            : "#dc2626",
-                      fontWeight: 600,
-                    };
-                    return (
-                      <tr key={d.empleadoId}>
-                        <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                        <td style={s.previewTd}>{d.metaIndividual}</td>
-                        <td style={s.previewTd}>{d.cantidadAprobada}</td>
-                        <td style={cumplStyle}>{cumpl}%</td>
-                        <td style={s.previewTd}>Q {d.montoMeta.toFixed(2)}</td>
-                        <td style={s.previewTd}>
-                          Q {d.montoRealizado.toFixed(2)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td
-                      colSpan={5}
-                      style={{
-                        ...s.previewTh,
-                        textAlign: "right",
-                        paddingTop: "10px",
-                      }}
-                    >
-                      Total a pagar:
-                    </td>
-                    <td
-                      style={{
-                        ...s.previewTh,
-                        color: "#1e293b",
-                        fontSize: "14px",
-                      }}
-                    >
-                      Q {detalle.montoTotal.toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      ...s.previewTh,
+                      textAlign: "right",
+                      paddingTop: "10px",
+                    }}
+                  >
+                    Total a pagar:
+                  </td>
+                  <td
+                    style={{
+                      ...s.previewTh,
+                      color: "#1e293b",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Q {detalle.montoTotal.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </>
         ) : (
           <p style={{ fontSize: "13px", color: "#ef4444" }}>

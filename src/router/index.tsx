@@ -18,7 +18,6 @@ const Area = lazy(() => import("@/modules/area/area"));
 const Planilla = lazy(() => import("@/modules/planilla/planilla"));
 const Puesto = lazy(() => import("@/modules/puesto/puesto"));
 const PanelOperario = lazy(() => import("@/modules/panelOperario/panelOperario"));
-const RegistroDiarioPage = lazy(() => import("@/modules/registroDiario/registroDiario"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -55,7 +54,6 @@ export default function Router() {
                     <Route path="/areas" element={<AdminRoute><Area /></AdminRoute>} />
                     <Route path="/planillas" element={<AdminRoute><Planilla /></AdminRoute>} />
                     <Route path="/puestos" element={<AdminRoute><Puesto /></AdminRoute>} />
-                    <Route path="/registros-diarios" element={<AdminRoute><RegistroDiarioPage /></AdminRoute>} />
                     <Route path="/mi-panel" element={<PanelOperario />} />
                   </Routes>
                 </Suspense>
