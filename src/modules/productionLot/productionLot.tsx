@@ -98,8 +98,7 @@ export default function ProductionLotPage() {
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Consolida revisiones aprobadas, muestra bloqueos y genera el lote temporal para
-          enviar a gerencia.
+          Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Consolida las revisiones aprobadas de la cuadrilla, muestra bloqueos pendientes y genera el lote para enviar a gerencia.
         </p>
       </div>
 
@@ -369,7 +368,7 @@ export default function ProductionLotPage() {
                     <td className="px-4 py-3">
                       <Badge
                         label={item.estado}
-                        color={item.estado === "EN_PROCESO" ? "blue" : "gray"}
+                        color={item.estado === "EN_PROCESO" ? "blue" : item.estado === "APROBADO" ? "green" : "gray"}
                       />
                     </td>
                     <td className="px-4 py-3 text-gray-600">
