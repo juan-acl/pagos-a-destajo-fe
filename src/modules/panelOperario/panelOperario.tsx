@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import { useAuthStore } from "@/store/authStore";
 import Badge from "@/components/ui/badge";
+import { modalidadLabel, money, normalizeModalidadPago, type ModalidadPago } from "@/utils/productionFlow";
 
-type Asignacion = { id: number; metaIndividual: number; estado: string; cuadrillaId: number; };
+type Asignacion = { id: number; metaIndividual?: number | null; cantidadAsignadaCuadrilla?: number | null; modalidadPago?: ModalidadPago | string | null; montoDiario?: number | null; estado: string; cuadrillaId: number; };
 type Reporte = { id: number; cantidadRecibida: number; cantidadAprobada: number; estadoRevision: string; observaciones?: string; fechaRevision: string; asignacionEmpleadoId: number; createdAt: string; };
-type Pago = { id: number; numeroPago: number; montoTotal: number; estado: string; fechaPago: string; metodoPago: string; numeroLote: string; cantidadAprobada: number; metaIndividual: number; };
+type Pago = { id: number; numeroPago: number; montoTotal: number; estado: string; fechaPago: string; metodoPago: string; numeroLote: string; cantidadAprobada: number; metaIndividual?: number | null; };
 type Panel = { miembro: any; asignacion: Asignacion | null; ultimoReporte: Reporte | null; historial: Reporte[]; pagos: Pago[]; };
 
 const fetchPanel = (empleadoId: number) =>
@@ -46,10 +47,6 @@ export default function PanelOperario() {
     const num = Number(cantidad);
     if (!num || num <= 0) { setError("Ingresa una cantidad válida mayor a 0."); return; }
     if (!panel?.asignacion) return;
-    if (num > panel.asignacion.metaIndividual * 3) {
-      setError(`La cantidad no puede superar ${panel.asignacion.metaIndividual * 3} piezas.`);
-      return;
-    }
     crear.mutate({
       cantidadRecibida: num,
       cantidadAprobada: 0,
@@ -60,7 +57,8 @@ export default function PanelOperario() {
     });
   };
 
-  const superaMeta = panel?.asignacion && Number(cantidad) > panel.asignacion.metaIndividual;
+  const referenciaProduccion = panel?.asignacion?.cantidadAsignadaCuadrilla ?? panel?.asignacion?.metaIndividual ?? 0;
+  const superaReferencia = panel?.asignacion && referenciaProduccion > 0 && Number(cantidad) > referenciaProduccion;
   const yaReporto = panel?.ultimoReporte?.estadoRevision === "PENDIENTE_REVISION";
 
   if (isLoading) return <div className="max-w-2xl mx-auto py-20 text-center text-gray-400 text-sm">Cargando tu panel...</div>;
@@ -122,17 +120,17 @@ export default function PanelOperario() {
                   <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
                 </svg>
               </div>
-              <h2 className="text-lg font-bold text-gray-900 mb-2">Sin meta asignada</h2>
-              <p className="text-sm text-gray-500">Tu jefe de cuadrilla aún no ha asignado una meta. Consulta con tu supervisor.</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Sin orden activa</h2>
+              <p className="text-sm text-gray-500">Tu jefe de cuadrilla aún no ha definido una orden activa con modalidad de control.</p>
             </div>
           ) : (
             <>
-              {/* Card meta */}
+              {/* Card modalidad */}
               <div className="bg-[#2D6A4F] rounded-2xl p-6 mb-6 text-white">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Tu meta asignada</p>
+                <p className="text-white/70 text-xs font-semibold uppercase tracking-wide mb-1">Modalidad de tu orden</p>
                 <div className="flex items-end gap-3 mb-3">
-                  <span className="text-5xl font-black">{panel.asignacion.metaIndividual}</span>
-                  <span className="text-white/70 text-sm mb-2">piezas por ciclo</span>
+                  <span className="text-3xl font-black">{modalidadLabel[normalizeModalidadPago(panel.asignacion.modalidadPago)]}</span>
+                  <span className="text-white/70 text-sm mb-1">{normalizeModalidadPago(panel.asignacion.modalidadPago) === "PAGO_POR_DIAS" ? `${money(panel.asignacion.montoDiario)} / día` : `${referenciaProduccion || "-"} piezas ref.`}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-300" />
@@ -190,12 +188,12 @@ export default function PanelOperario() {
                       </div>
                     </label>
 
-                    {superaMeta && !error && (
+                    {superaReferencia && !error && (
                       <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-4 flex items-center gap-2">
                         <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
                         </svg>
-                        <p className="text-xs text-amber-700">La cantidad supera tu meta de {panel.asignacion.metaIndividual} piezas. Puedes continuar si es correcto.</p>
+                        <p className="text-xs text-amber-700">La cantidad supera la referencia de cuadrilla de {referenciaProduccion} piezas. Puedes continuar si es correcto.</p>
                       </div>
                     )}
 
@@ -205,16 +203,16 @@ export default function PanelOperario() {
                       </div>
                     )}
 
-                    {cantidad && Number(cantidad) > 0 && (
+                    {cantidad && Number(cantidad) > 0 && referenciaProduccion > 0 && (
                       <div className="mb-4">
                         <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>Progreso vs meta</span>
-                          <span>{Math.min(Math.round((Number(cantidad) / panel.asignacion.metaIndividual) * 100), 100)}%</span>
+                          <span>Producción reportada vs referencia de cuadrilla</span>
+                          <span>{Math.min(Math.round((Number(cantidad) / referenciaProduccion) * 100), 100)}%</span>
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-2">
                           <div
-                            className={`h-2 rounded-full transition-all ${Number(cantidad) > panel.asignacion.metaIndividual ? "bg-amber-400" : "bg-[#2D6A4F]"}`}
-                            style={{ width: `${Math.min((Number(cantidad) / panel.asignacion.metaIndividual) * 100, 100)}%` }}
+                            className={`h-2 rounded-full transition-all ${Number(cantidad) > referenciaProduccion ? "bg-amber-400" : "bg-[#2D6A4F]"}`}
+                            style={{ width: `${Math.min((Number(cantidad) / referenciaProduccion) * 100, 100)}%` }}
                           />
                         </div>
                       </div>

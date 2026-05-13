@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import Home from "@/modules/home/home";
 import Login from "@/modules/login/login";
-import { useAuthStore, isAdmin } from "@/store/authStore";
+import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
 
 const Empleado = lazy(() => import("@/modules/empleado/empleado"));
 const Cuadrilla = lazy(() => import("@/modules/cuadrilla/cuadrilla"));
@@ -26,7 +26,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { empleado } = useAuthStore();
-  return isAdmin(empleado?.pstPuesto) ? <>{children}</> : <Navigate to="/mi-panel" replace />;
+  return canAccessBackoffice(empleado) ? <>{children}</> : <Navigate to="/mi-panel" replace />;
 }
 
 export default function Router() {

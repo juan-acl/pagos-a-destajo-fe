@@ -251,8 +251,7 @@ export default function Planilla() {
         <div>
           <h1 style={s.title}>Planillas</h1>
           <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Genere y gestione las planillas de pago vinculadas a lotes de
-            producción.
+            Genere y gestione las planillas de pago según la modalidad definida para la orden.
           </p>
         </div>
         <button
@@ -293,7 +292,7 @@ export default function Planilla() {
       <Modal
         open={generarOpen}
         title="Generar Planilla"
-        subtitle="Seleccione el lote de producción para generar la planilla de pago."
+        subtitle="Seleccione la orden con lote de producción o días válidos para generar la planilla de pago."
         onClose={() => setGenerarOpen(false)}
       >
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
@@ -364,10 +363,10 @@ export default function Planilla() {
                     <tr>
                       {[
                         "Empleado",
-                        "Meta ind.",
+                        "Ref.",
                         "Prod. real",
                         "Cumpl. %",
-                        "Monto meta",
+                        "Monto base",
                         "Monto real",
                       ].map((h) => (
                         <th key={h} style={s.previewTh}>
@@ -379,9 +378,9 @@ export default function Planilla() {
                   <tbody>
                     {preview.detalle.map((d) => {
                       const cumpl =
-                        d.metaIndividual > 0
+                        (d.referenciaProduccion ?? d.metaIndividual ?? 0) > 0
                           ? Math.round(
-                              (d.cantidadAprobada / d.metaIndividual) * 100,
+                              (d.cantidadAprobada / Number(d.referenciaProduccion ?? d.metaIndividual ?? 0)) * 100,
                             )
                           : 0;
                       const cumplStyle: React.CSSProperties = {
@@ -397,7 +396,7 @@ export default function Planilla() {
                       return (
                         <tr key={d.empleadoId}>
                           <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                          <td style={s.previewTd}>{d.metaIndividual}</td>
+                          <td style={s.previewTd}>{d.referenciaProduccion ?? d.metaIndividual ?? "-"}</td>
                           <td style={s.previewTd}>{d.cantidadAprobada}</td>
                           <td style={cumplStyle}>{cumpl}%</td>
                           <td style={s.previewTd}>
@@ -574,10 +573,10 @@ export default function Planilla() {
                 <tr>
                   {[
                     "Empleado",
-                    "Meta ind.",
+                    "Ref.",
                     "Prod. real",
                     "Cumpl. %",
-                    "Monto meta",
+                    "Monto base",
                     "Monto real",
                   ].map((h) => (
                     <th key={h} style={s.previewTh}>
@@ -589,9 +588,9 @@ export default function Planilla() {
               <tbody>
                 {detalle.detalle.map((d) => {
                   const cumpl =
-                    d.metaIndividual > 0
+                    (d.referenciaProduccion ?? d.metaIndividual ?? 0) > 0
                       ? Math.round(
-                          (d.cantidadAprobada / d.metaIndividual) * 100,
+                          (d.cantidadAprobada / Number(d.referenciaProduccion ?? d.metaIndividual ?? 0)) * 100,
                         )
                       : 0;
                   const cumplStyle: React.CSSProperties = {
@@ -607,7 +606,7 @@ export default function Planilla() {
                   return (
                     <tr key={d.empleadoId}>
                       <td style={s.previewTd}>{d.nombreEmpleado}</td>
-                      <td style={s.previewTd}>{d.metaIndividual}</td>
+                      <td style={s.previewTd}>{d.referenciaProduccion ?? d.metaIndividual ?? "-"}</td>
                       <td style={s.previewTd}>{d.cantidadAprobada}</td>
                       <td style={cumplStyle}>{cumpl}%</td>
                       <td style={s.previewTd}>Q {d.montoMeta.toFixed(2)}</td>

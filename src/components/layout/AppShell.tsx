@@ -5,8 +5,8 @@ import {
   ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
   LayoutDashboard
 } from "lucide-react";
-import { useAuthStore, isAdmin } from "@/store/authStore";
-import logo from "@/assets/logo.png";
+import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
+import logo from "@/assets/Logo.png";
 
 const SIDEBAR_FULL = 220;
 const SIDEBAR_MINI = 64;
@@ -58,7 +58,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
   ];
 
-  const links = isAdmin(empleado?.pstPuesto) ? adminLinks : operarioLinks;
+  const links = canAccessBackoffice(empleado) ? adminLinks : operarioLinks;
 
   const footerLinks = [
     { icon: Settings, label: "Settings", action: () => {} },
@@ -216,7 +216,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <Menu size={22} />
               </button>
             )}
-            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>Pago a destajo</span>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>Pago por modalidad</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {empleado && (

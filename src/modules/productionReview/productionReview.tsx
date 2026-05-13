@@ -3,10 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { modalidadLabel, money, normalizeModalidadPago, type ModalidadPago } from "@/utils/productionFlow";
 
 type PendingAssignment = {
   id: number;
-  metaIndividual: number;
+  metaIndividual?: number | null;
+  cantidadAsignadaCuadrilla?: number | null;
+  modalidadPago?: ModalidadPago | string | null;
+  montoDiario?: number | null;
   estado: string;
   empleadoNombre: string;
   asignacionOrdenCuadrillaId: number | null;
@@ -110,10 +114,6 @@ export default function ProductionReviewPage() {
       setMessage("La cantidad recibida debe ser mayor a cero.");
       return;
     }
-    if (Number(cantidadRecibida) > Number(selectedAssignment.metaIndividual)) {
-      setMessage("La cantidad recibida no puede superar la meta asignada.");
-      return;
-    }
     if (Number(cantidadAprobada || 0) > Number(cantidadRecibida)) {
       setMessage("La cantidad aprobada no puede ser mayor a la recibida.");
       return;
@@ -131,7 +131,7 @@ export default function ProductionReviewPage() {
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Procesa asignaciones activas, calcula el rechazo en tiempo real y bloquea lo que no cumple.
+          Procesa reportes activos, calcula el rechazo en tiempo real y respeta la modalidad de control definida para la orden.
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export default function ProductionReviewPage() {
 
       <div className="grid lg:grid-cols-[360px,1fr] gap-6 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Asignación activa</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Reporte activo</label>
           <select
             value={selectedId}
             onChange={(e) => {
@@ -166,7 +166,7 @@ export default function ProductionReviewPage() {
             }}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
           >
-            <option value="">Selecciona una asignación</option>
+            <option value="">Selecciona un reporte</option>
             {pending.map((item) => (
               <option key={item.id} value={item.id}>
                 #{item.id} · {item.empleadoNombre} · {item.cuadrilla?.nombre ?? "Sin cuadrilla"}
@@ -178,7 +178,11 @@ export default function ProductionReviewPage() {
             <div className="mt-4 rounded-lg bg-gray-50 border border-gray-100 p-4 text-sm text-gray-700 space-y-1">
               <p>Empleado: <strong>{selectedAssignment.empleadoNombre}</strong></p>
               <p>Cuadrilla: <strong>{selectedAssignment.cuadrilla?.nombre ?? "-"}</strong></p>
-              <p>Referencia de producción: <strong>{selectedAssignment.metaIndividual}</strong></p>
+              <p>Modalidad: <strong>{modalidadLabel[normalizeModalidadPago(selectedAssignment.modalidadPago)]}</strong></p>
+              <p>Referencia de cuadrilla: <strong>{selectedAssignment.cantidadAsignadaCuadrilla ?? selectedAssignment.metaIndividual ?? "-"}</strong></p>
+              {normalizeModalidadPago(selectedAssignment.modalidadPago) === "PAGO_POR_DIAS" && (
+                <p>Monto diario: <strong>{money(selectedAssignment.montoDiario)}</strong></p>
+              )}
               <p>Asignación: <strong>#{selectedAssignment.id}</strong></p>
             </div>
           )}
@@ -251,7 +255,7 @@ export default function ProductionReviewPage() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Historial de revisiones</h2>
-          <p className="text-sm text-gray-500">Muestra el cálculo temporal de rechazo y el estado resultante.</p>
+          <p className="text-sm text-gray-500">Muestra el cálculo temporal de rechazo y el estado resultante sin limitar por meta individual.</p>
         </div>
 
         {loadingPending || loadingReviews ? (

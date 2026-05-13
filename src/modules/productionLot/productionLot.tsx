@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { normalizeModalidadPago, type ModalidadPago } from "@/utils/productionFlow";
 
 type LotCandidate = {
   id: number;
   cantidadAsignada: number;
+  modalidadPago?: ModalidadPago | string | null;
   totalAprobado: number;
   montoTotal: number;
   canGenerate: boolean;
@@ -68,9 +70,14 @@ export default function ProductionLotPage() {
     queryFn: fetchLots,
   });
 
+  const destajoCandidates = useMemo(
+    () => candidates.filter((item) => normalizeModalidadPago(item.modalidadPago) === "DESTAJO"),
+    [candidates],
+  );
+
   const selectedCandidate = useMemo(
-    () => candidates.find((item) => item.id === Number(selectedCandidateId)) ?? null,
-    [candidates, selectedCandidateId],
+    () => destajoCandidates.find((item) => item.id === Number(selectedCandidateId)) ?? null,
+    [destajoCandidates, selectedCandidateId],
   );
 
   const invalidate = async () => {
@@ -112,17 +119,17 @@ export default function ProductionLotPage() {
         {[
           {
             label: "Paneles evaluados",
-            value: candidates.length,
+            value: destajoCandidates.length,
             color: "text-gray-900",
           },
           {
             label: "Listos para lote",
-            value: candidates.filter((item) => item.canGenerate).length,
+            value: destajoCandidates.filter((item) => item.canGenerate).length,
             color: "text-[#2D6A4F]",
           },
           {
             label: "Con bloqueos",
-            value: candidates.filter((item) => !item.canGenerate).length,
+            value: destajoCandidates.filter((item) => !item.canGenerate).length,
             color: "text-red-600",
           },
           {
@@ -154,7 +161,7 @@ export default function ProductionLotPage() {
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
           >
             <option value="">Selecciona un panel</option>
-            {candidates.map((item) => (
+            {destajoCandidates.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.orden?.numeroOrden ?? `Orden #${item.orden?.id ?? "-"}`} ·{" "}
                 {item.cuadrilla?.nombre ?? "Sin cuadrilla"}
@@ -252,7 +259,7 @@ export default function ProductionLotPage() {
 
           {loadingCandidates ? (
             <p className="text-center py-12 text-gray-400">Cargando...</p>
-          ) : candidates.length === 0 ? (
+          ) : destajoCandidates.length === 0 ? (
             <p className="text-center py-12 text-gray-400">
               Aún no hay paneles para evaluar.
             </p>
@@ -274,7 +281,7 @@ export default function ProductionLotPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {candidates.map((item, index) => (
+                  {destajoCandidates.map((item, index) => (
                     <tr
                       key={item.id}
                       className={`border-t border-gray-100 ${

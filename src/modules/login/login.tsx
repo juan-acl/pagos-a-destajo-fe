@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api";
-import { useAuthStore, ADMIN_PUESTOS } from "@/store/authStore";
-import logo from "@/assets/logo.png";
+import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
+import logo from "@/assets/Logo.png";
 
 const FIELD_IMAGE = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80";
 
@@ -25,8 +25,8 @@ export default function Login() {
       const res = await api.post<{ success: boolean; data: any }>("/empleados/login", form);
       if (res.data.success) {
         login(res.data.data);
-        const esAdmin = ADMIN_PUESTOS.includes(res.data.data.pstPuesto);
-        navigate(esAdmin ? "/" : "/mi-panel");
+        const puedeAccederBackoffice = canAccessBackoffice(res.data.data);
+        navigate(puedeAccederBackoffice ? "/" : "/mi-panel");
       } else {
         setError("Credenciales incorrectas");
       }

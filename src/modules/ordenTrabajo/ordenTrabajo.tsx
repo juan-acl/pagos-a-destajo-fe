@@ -19,7 +19,7 @@ type OrdenTrabajoForm = Omit<OrdenTrabajo, "id">;
 
 const empty: OrdenTrabajoForm = {
     numeroOrden: "", cantidadRequerida: 0, medidaId: null,
-    pagoUnitario: 0, fechaLimite: "", estado: "activo",
+    pagoUnitario: 0, fechaLimite: "", estado: "EN_PROCESO",
 };
 
 const fetcherOrdenes = () => api.get<{ data: OrdenTrabajo[] }>("/ordenes-trabajo").then(r => r.data.data);
@@ -92,6 +92,10 @@ export default function OrdenTrabajo() {
                             <label style={s.label}>
                                 Estado
                                 <select name="estado" value={form.estado} onChange={change} style={s.input}>
+                                    <option value="CREADA">CREADA</option>
+                                    <option value="EN_PROCESO">EN_PROCESO</option>
+                                    <option value="COMPLETADA">COMPLETADA</option>
+                                    <option value="CANCELADA">CANCELADA</option>
                                     <option value="activo">ACTIVO</option>
                                     <option value="inactivo">INACTIVO</option>
                                 </select>
@@ -120,7 +124,7 @@ export default function OrdenTrabajo() {
                                         <td style={s.td}>{getMedidaNombre(o.medidaId)}</td>
                                         <td style={s.td}>Q {Number(o.pagoUnitario).toFixed(2)}</td>
                                         <td style={s.td}>{o.fechaLimite ? new Date(o.fechaLimite).toLocaleDateString() : "-"}</td>
-                                        <td style={s.td}><span style={o.estado === "activo" ? s.activo : s.inactivo}>{o.estado.toUpperCase()}</span></td>
+                                        <td style={s.td}><span style={["activo", "EN_PROCESO", "CREADA"].includes(o.estado) ? s.activo : s.inactivo}>{o.estado.toUpperCase()}</span></td>
                                         <td style={{ ...s.td, ...s.actionCell }}>
                                             <button style={s.btnEdit} onClick={() => edit(o)}>Editar</button>
                                             <button style={s.btnDelete} onClick={() => remove.mutate(o.id)}>Eliminar</button>

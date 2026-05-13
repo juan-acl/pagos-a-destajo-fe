@@ -10,23 +10,21 @@ import {
 type Empleado = { id: number; estado: string; };
 type Cuadrilla = { id: number; estado: string; };
 type Lote = { id: number; numeroLote: string; totalPiezasAprobadas: number; fechaEnvio: string; estado: string; };
-type Asignacion = { id: number; metaIndividual: number; estado: string; cuadrillaId: number; };
 type Planilla = { id: number; numeroPago: number; montoTotal: number; metodoPago: string; estado: string; fechaPago: string; };
 
 const fetchEmpleados = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
 const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 const fetchLotes = () => api.get<{ data: Lote[] }>("/production-lot").then(r => r.data.data);
-const fetchAsignaciones = () => api.get<{ data: Asignacion[] }>("/employee-assignment").then(r => r.data.data);
 const fetchPlanillas = () => api.get<{ data: Planilla[] }>("/planilla").then(r => r.data.data);
 
 const links = [
   { label: "Empleados", to: "/empleados", icon: "👤", desc: "Gestiona la fuerza laboral" },
   { label: "Cuadrillas", to: "/cuadrillas", icon: "👥", desc: "Grupos de trabajo" },
   { label: "Miembros", to: "/miembros-cuadrilla", icon: "🔗", desc: "Asignación a cuadrillas" },
-  { label: "Asignaciones", to: "/employee-assignment", icon: "📌", desc: "Meta individual por cuadrilla" },
+  { label: "Asignaciones", to: "/employee-assignment", icon: "📌", desc: "Modalidad por orden y cuadrilla" },
   { label: "Revisiones", to: "/production-review", icon: "🔍", desc: "Control de producción" },
   { label: "Lotes", to: "/production-lot", icon: "📦", desc: "Lotes de producción enviados" },
-  { label: "Planillas", to: "/planillas", icon: "💰", desc: "Pagos a destajo" },
+  { label: "Planillas", to: "/planillas", icon: "💰", desc: "Pagos por modalidad" },
   { label: "Áreas", to: "/areas", icon: "🗺", desc: "Áreas de trabajo" },
   { label: "Posiciones", to: "/puestos", icon: "💼", desc: "Puestos de trabajo" },
 ];
@@ -37,7 +35,6 @@ export default function Home() {
   const { data: empleados = [] } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
   const { data: cuadrillas = [] } = useQuery({ queryKey: ["cuadrillas"], queryFn: fetchCuadrillas });
   const { data: lotes = [] } = useQuery({ queryKey: ["lotes"], queryFn: fetchLotes });
-  const { data: asignaciones = [] } = useQuery({ queryKey: ["asignaciones"], queryFn: fetchAsignaciones });
   const { data: planillas = [] } = useQuery({ queryKey: ["planillas"], queryFn: fetchPlanillas });
 
   const empleadosActivos = empleados.filter(e => e.estado === "ACTIVO").length;
@@ -76,7 +73,7 @@ export default function Home() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 m-0">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Resumen general del sistema de pagos a destajo.</p>
+        <p className="text-sm text-gray-500 mt-1">Resumen general del sistema de pagos por modalidad de orden.</p>
       </div>
 
       {/* Stats */}

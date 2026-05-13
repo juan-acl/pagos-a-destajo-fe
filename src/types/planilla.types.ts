@@ -45,7 +45,7 @@ export type Planilla = {
 export type DetalleEmpleado = {
   empleadoId: number;
   nombreEmpleado: string;
-  /** metaIndividual del AsignacionEmpleado (piezas asignadas al empleado) */
+  /** Producción aprobada o días válidos según modalidad de la orden */
   piezasAprobadas: number;
   pagoUnitario: number;
   montoIndividual: number;
@@ -66,7 +66,9 @@ export type GenerarResponse = {
 export type ResultadoEmpleado = {
   empleadoId: number;
   nombreEmpleado: string;
-  metaIndividual: number;
+  metaIndividual?: number | null;
+  referenciaProduccion?: number | null;
+  modalidadPago?: string | null;
   cantidadAprobada: number;
   pagoUnitario: number;
   montoMeta: number;
