@@ -178,7 +178,7 @@ export default function ProductionReviewPage() {
             <div className="mt-4 rounded-lg bg-gray-50 border border-gray-100 p-4 text-sm text-gray-700 space-y-1">
               <p>Empleado: <strong>{selectedAssignment.empleadoNombre}</strong></p>
               <p>Cuadrilla: <strong>{selectedAssignment.cuadrilla?.nombre ?? "-"}</strong></p>
-              <p>Meta asignada: <strong>{selectedAssignment.metaIndividual}</strong></p>
+              <p>Referencia de producción: <strong>{selectedAssignment.metaIndividual}</strong></p>
               <p>Asignación: <strong>#{selectedAssignment.id}</strong></p>
             </div>
           )}
