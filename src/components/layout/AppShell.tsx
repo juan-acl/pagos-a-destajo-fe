@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
   ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
-  LayoutDashboard
+  LayoutDashboard, Ruler, ClipboardCheck, CalendarDays, ListChecks
 } from "lucide-react";
 import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
 import logo from "@/assets/Logo.png";
@@ -44,14 +44,19 @@ export default function AppShell({ children }: PropsWithChildren) {
   const adminLinks = [
     { to: "/", label: "Inicio", icon: Home },
     { to: "/areas", label: "Áreas", icon: Map },
-    { to: "/planillas", label: "Planillas", icon: FileText },
+    { to: "/puestos", label: "Puestos", icon: Briefcase },
+    { to: "/medidas", label: "Medidas", icon: Ruler },
     { to: "/empleados", label: "Empleados", icon: Users },
     { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
     { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-    { to: "/puestos", label: "Posiciones", icon: Briefcase },
-    { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
+    { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: ClipboardList },
+    { to: "/asignaciones-orden-cuadrilla", label: "Modalidad por cuadrilla", icon: ClipboardCheck },
+    { to: "/employee-assignment", label: "Asignaciones", icon: ListChecks },
     { to: "/production-review", label: "Revisiones", icon: Search },
     { to: "/production-lot", label: "Lotes", icon: Package },
+    { to: "/registro-diario", label: "Registro diario", icon: CalendarDays },
+    { to: "/planillas", label: "Planillas", icon: FileText },
+    { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
   ];
 
   const operarioLinks = [

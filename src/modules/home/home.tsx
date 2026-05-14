@@ -18,15 +18,20 @@ const fetchLotes = () => api.get<{ data: Lote[] }>("/production-lot").then(r => 
 const fetchPlanillas = () => api.get<{ data: Planilla[] }>("/planilla").then(r => r.data.data);
 
 const links = [
+  { label: "Áreas", to: "/areas", icon: "🗺", desc: "Áreas de trabajo" },
+  { label: "Puestos", to: "/puestos", icon: "💼", desc: "Puestos de trabajo" },
+  { label: "Medidas", to: "/medidas", icon: "📏", desc: "Unidades de medida" },
   { label: "Empleados", to: "/empleados", icon: "👤", desc: "Gestiona la fuerza laboral" },
   { label: "Cuadrillas", to: "/cuadrillas", icon: "👥", desc: "Grupos de trabajo" },
   { label: "Miembros", to: "/miembros-cuadrilla", icon: "🔗", desc: "Asignación a cuadrillas" },
-  { label: "Asignaciones", to: "/employee-assignment", icon: "📌", desc: "Modalidad por orden y cuadrilla" },
+  { label: "Órdenes", to: "/ordenes-trabajo", icon: "📋", desc: "Órdenes de trabajo" },
+  { label: "Modalidad", to: "/asignaciones-orden-cuadrilla", icon: "✅", desc: "Modalidad por cuadrilla" },
+  { label: "Asignaciones", to: "/employee-assignment", icon: "📌", desc: "Asignaciones de empleados" },
   { label: "Revisiones", to: "/production-review", icon: "🔍", desc: "Control de producción" },
   { label: "Lotes", to: "/production-lot", icon: "📦", desc: "Lotes de producción enviados" },
+  { label: "Registro diario", to: "/registro-diario", icon: "📅", desc: "Días por modalidad" },
   { label: "Planillas", to: "/planillas", icon: "💰", desc: "Pagos por modalidad" },
-  { label: "Áreas", to: "/areas", icon: "🗺", desc: "Áreas de trabajo" },
-  { label: "Posiciones", to: "/puestos", icon: "💼", desc: "Puestos de trabajo" },
+  { label: "Mi Panel", to: "/mi-panel", icon: "🧾", desc: "Vista operativa personal" },
 ];
 
 const COLORS = ["#2D6A4F", "#52B788", "#E9C46A", "#F4A261", "#DC3545"];
