@@ -19,6 +19,7 @@ const Planilla = lazy(() => import("@/modules/planilla/planilla"));
 const Puesto = lazy(() => import("@/modules/puesto/puesto"));
 const PanelOperario = lazy(() => import("@/modules/panelOperario/panelOperario"));
 const RegistroDiarioPage = lazy(() => import("@/modules/registroDiario/registroDiario"));
+const Dashboard = lazy(() => import("@/modules/dashboard/Dashboard.tsx"));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -43,6 +44,7 @@ export default function Router() {
                 <Suspense fallback={<div className="p-6 text-gray-400 text-sm">Cargando...</div>}>
                   <Routes>
                     <Route path="/" element={<AdminRoute><Home /></AdminRoute>} />
+                    <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
                     <Route path="/empleados" element={<AdminRoute><Empleado /></AdminRoute>} />
                     <Route path="/cuadrillas" element={<AdminRoute><Cuadrilla /></AdminRoute>} />
                     <Route path="/miembros-cuadrilla" element={<AdminRoute><MiembroCuadrilla /></AdminRoute>} />
