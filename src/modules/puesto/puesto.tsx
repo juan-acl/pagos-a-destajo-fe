@@ -15,12 +15,15 @@ import {
   puestoStats,
   type FormField,
 } from "@/constants/puesto.constants";
+import type { AxiosError } from "node_modules/axios/index.d.cts";
+import { getErrorMessage } from "@/utils/api";
 
 export default function Puesto() {
   const qc = useQueryClient();
   const [form, setForm] = useState<PuestoForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["position-workers"],
@@ -81,11 +84,17 @@ export default function Puesto() {
   const create = useMutation({
     mutationFn: (d: PuestoForm) => api.post("/position-workers", d),
     onSuccess: invalidate,
+    onError: (error: AxiosError<unknown>) => {
+      setErrorMessage(getErrorMessage(error));
+    },
   });
 
   const update = useMutation({
     mutationFn: (d: PuestoForm) => api.put(`/position-workers/${editId}`, d),
     onSuccess: invalidate,
+    onError: (error: AxiosError<unknown>) => {
+      setErrorMessage(getErrorMessage(error));
+    },
   });
 
   const remove = useMutation({
@@ -97,6 +106,7 @@ export default function Puesto() {
     setForm(empty);
     setEditId(null);
     setOpen(false);
+    setErrorMessage(null);
   };
 
   const edit = (p: Puesto) => {
@@ -208,6 +218,21 @@ export default function Puesto() {
         subtitle="Complete la información para registrar el puesto de trabajo."
         onClose={reset}
       >
+        {errorMessage && (
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#b91c1c",
+              border: "1px solid #fecaca",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              fontSize: "14px",
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
         <form onSubmit={submit}>
           <div style={s.grid}>
             {puestoFormFields.map((field: FormField) => (
@@ -238,6 +263,7 @@ export default function Puesto() {
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
                     rows={field.rows ?? 3}
+                    required={field.required}
                     style={{ ...s.input, resize: "vertical" }}
                   />
                 ) : (
