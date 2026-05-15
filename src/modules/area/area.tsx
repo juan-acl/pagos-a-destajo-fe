@@ -15,12 +15,15 @@ import {
 } from "@/constants/area.constants";
 import Filters, { type Option } from "@/components/commons/filters";
 import { useFilter } from "@/hooks/useFilter";
+import type { AxiosError } from "axios";
+import { getErrorMessage } from "@/utils/api";
 
 export default function Area() {
   const qc = useQueryClient();
   const [form, setForm] = useState<AreaForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["area"],
@@ -80,10 +83,17 @@ export default function Area() {
   const create = useMutation({
     mutationFn: (d: AreaForm) => api.post("/area", d),
     onSuccess: invalidate,
+    onError: (error: AxiosError<unknown>) => {
+      setErrorMessage(getErrorMessage(error));
+    },
   });
+
   const update = useMutation({
     mutationFn: (d: AreaForm) => api.put(`/area/${editId}`, d),
     onSuccess: invalidate,
+    onError: (error: AxiosError<unknown>) => {
+      setErrorMessage(getErrorMessage(error));
+    },
   });
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/area/${id}`),
@@ -94,6 +104,7 @@ export default function Area() {
     setForm(empty);
     setEditId(null);
     setOpen(false);
+    setErrorMessage(null);
   };
 
   const edit = (a: Area) => {
@@ -200,6 +211,21 @@ export default function Area() {
         subtitle="Complete la información para registrar el área."
         onClose={reset}
       >
+        {errorMessage && (
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#b91c1c",
+              border: "1px solid #fecaca",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              fontSize: "14px",
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
         <form onSubmit={submit}>
           <div style={s.grid}>
             {areaFormFields.map((field: FormField) => (
@@ -224,6 +250,7 @@ export default function Area() {
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
                     required={field.required}
+                    maxLength={field.maxLength}
                     style={s.input}
                   />
                 )}

@@ -36,5 +36,6 @@ export const puestoFormFields: FormField[] = [
     type: "textarea",
     rows: 3,
     fullWidth: true,
+    required: true,
   },
 ];

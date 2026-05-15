@@ -12,6 +12,7 @@ export interface FormField {
   type: "text" | "select";
   required?: boolean;
   options?: { value: string; label: string }[];
+  maxLength?: number;
 }
 
 export const areaFormFields: FormField[] = [
@@ -25,6 +26,8 @@ export const areaFormFields: FormField[] = [
     name: "codigoArea",
     label: "Código área",
     type: "text",
+    maxLength: 6,
+    required: true,
   },
   {
     name: "estado",
