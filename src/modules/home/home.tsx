@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
+import { isActiveStatus } from "@/utils/productionFlow";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -42,8 +43,8 @@ export default function Home() {
   const { data: lotes = [] } = useQuery({ queryKey: ["lotes"], queryFn: fetchLotes });
   const { data: planillas = [] } = useQuery({ queryKey: ["planillas"], queryFn: fetchPlanillas });
 
-  const empleadosActivos = empleados.filter(e => e.estado === "ACTIVO").length;
-  const cuadrillasActivas = cuadrillas.filter(c => c.estado === "ACTIVO").length;
+  const empleadosActivos = empleados.filter(e => isActiveStatus(e.estado)).length;
+  const cuadrillasActivas = cuadrillas.filter(c => isActiveStatus(c.estado)).length;
   const totalPiezas = lotes.filter(l => l.estado === "APROBADO").reduce((sum, l) => sum + l.totalPiezasAprobadas, 0);
   const lotesAprobados = lotes.filter(l => l.estado === "APROBADO").length;
   const pagosPagados = planillas.filter(p => p.estado === "PAGADO").length;

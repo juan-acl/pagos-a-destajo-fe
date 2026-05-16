@@ -55,6 +55,20 @@ export const normalizeTipoPagoDias = (value?: string | null): TipoPagoDias =>
 
 export const getDiasText = (count: number) => `${count} día${count === 1 ? "" : "s"}`;
 
+
+export const normalizeEstadoOperativo = (value?: string | null) =>
+  String(value ?? "").trim().toUpperCase();
+
+export const isActiveStatus = (value?: string | null) => {
+  const estado = normalizeEstadoOperativo(value);
+  return ["ACTIVO", "ACTIVA", "ACTIVE", "VIGENTE", "EN_PROCESO"].includes(estado);
+};
+
+export const isInactiveStatus = (value?: string | null) => {
+  const estado = normalizeEstadoOperativo(value);
+  return ["INACTIVO", "INACTIVA", "INACTIVE", "BAJA", "BAJO"].includes(estado);
+};
+
 export const getEstadoVigenciaDia = (dia: DiaProgramado) => {
   if (dia.estado) return dia.estado;
   const fecha = normalizeDateInput(dia.fecha);

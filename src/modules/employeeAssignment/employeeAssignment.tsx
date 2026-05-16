@@ -6,6 +6,7 @@ import { type ApiEnvelope } from "@/utils/api";
 import {
   calculateInclusiveDays,
   getDiasText,
+  isActiveStatus,
   modalidadLabel,
   money,
   normalizeDateInput,
@@ -40,6 +41,27 @@ type PanelMember = {
   empleadoId: number;
   empleadoNombre: string;
   puestoNombre?: string | null;
+  estado?: string | null;
+  empleadoEstado?: string | null;
+};
+
+type MiembroCuadrillaApi = {
+  id: number;
+  empleadoId: number;
+  cuadrillaId: number;
+  estado?: string | null;
+  empleado?: {
+    primerNombre?: string | null;
+    segundoNombre?: string | null;
+    primerApellido?: string | null;
+    segundoApellido?: string | null;
+    codigoEmpleado?: string | null;
+    estado?: string | null;
+    puesto?: { nombre?: string | null } | null;
+    positionWorker?: { nombre?: string | null } | null;
+    pstPuesto?: number | null;
+  } | null;
+  puesto?: { nombre?: string | null } | null;
 };
 
 type AssignmentPanel = {
@@ -80,6 +102,12 @@ const fetchAssignments = () =>
     .get<ApiEnvelope<AssignmentItem[]>>("/employee-assignment")
     .then((response) => response.data.data);
 
+const fetchMiembrosCuadrilla = () =>
+  api
+    .get<ApiEnvelope<MiembroCuadrillaApi[]> | { data: MiembroCuadrillaApi[] }>("/miembros-cuadrilla")
+    .then((response) => response.data.data ?? [])
+    .catch(() => [] as MiembroCuadrillaApi[]);
+
 const getPanelDays = (panel: AssignmentPanel | null) =>
   panel
     ? Number(panel.diasSeleccionados ?? panel.totalDias ?? calculateInclusiveDays(panel.fechaInicio, panel.fechaFin))
@@ -88,6 +116,42 @@ const getPanelDays = (panel: AssignmentPanel | null) =>
 const getProjectedAmount = (panel: AssignmentPanel | null) => {
   if (!panel) return 0;
   return Number(panel.montoTotalProyectado ?? Number(panel.montoDiario ?? 0) * getPanelDays(panel));
+};
+
+const buildMemberName = (miembro: MiembroCuadrillaApi) => {
+  const empleado = miembro.empleado;
+  const parts = [
+    empleado?.primerNombre,
+    empleado?.segundoNombre,
+    empleado?.primerApellido,
+    empleado?.segundoApellido,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" ") : `Empleado #${miembro.empleadoId}`;
+};
+
+const getPuestoName = (miembro: MiembroCuadrillaApi) =>
+  miembro.puesto?.nombre ??
+  miembro.empleado?.puesto?.nombre ??
+  miembro.empleado?.positionWorker?.nombre ??
+  null;
+
+const normalizePanelMember = (member: PanelMember): PanelMember => ({
+  ...member,
+  estado: member.estado ?? "ACTIVO",
+  empleadoEstado: member.empleadoEstado ?? "ACTIVO",
+});
+
+const mergeMembers = (fromPanel: PanelMember[], fromCuadrilla: PanelMember[]) => {
+  const map = new Map<number, PanelMember>();
+
+  [...fromPanel, ...fromCuadrilla].forEach((member) => {
+    if (!isActiveStatus(member.estado ?? "ACTIVO")) return;
+    if (!isActiveStatus(member.empleadoEstado ?? "ACTIVO")) return;
+    map.set(member.empleadoId, normalizePanelMember(member));
+  });
+
+  return Array.from(map.values());
 };
 
 export default function EmployeeAssignmentPage() {
@@ -104,9 +168,47 @@ export default function EmployeeAssignmentPage() {
     queryFn: fetchAssignments,
   });
 
+  const { data: miembrosCuadrilla = [] } = useQuery({
+    queryKey: ["miembros-cuadrilla"],
+    queryFn: fetchMiembrosCuadrilla,
+  });
+
   const selectedPanel = useMemo(
     () => panels.find((item) => item.id === Number(selectedPanelId)) ?? null,
     [panels, selectedPanelId],
+  );
+
+  const miembrosPorCuadrilla = useMemo(() => {
+    const map = new Map<number, PanelMember[]>();
+
+    miembrosCuadrilla.forEach((miembro) => {
+      if (!isActiveStatus(miembro.estado ?? "ACTIVO")) return;
+      if (!isActiveStatus(miembro.empleado?.estado ?? "ACTIVO")) return;
+
+      const current = map.get(miembro.cuadrillaId) ?? [];
+      current.push({
+        empleadoId: miembro.empleadoId,
+        empleadoNombre: buildMemberName(miembro),
+        puestoNombre: getPuestoName(miembro),
+        estado: miembro.estado ?? "ACTIVO",
+        empleadoEstado: miembro.empleado?.estado ?? "ACTIVO",
+      });
+      map.set(miembro.cuadrillaId, current);
+    });
+
+    return map;
+  }, [miembrosCuadrilla]);
+
+  const getPanelMembers = (panel: AssignmentPanel | null) => {
+    if (!panel) return [] as PanelMember[];
+    const membersFromPanel = (panel.miembros ?? []).map(normalizePanelMember);
+    const membersFromCuadrilla = miembrosPorCuadrilla.get(panel.cuadrilla?.id ?? 0) ?? [];
+    return mergeMembers(membersFromPanel, membersFromCuadrilla);
+  };
+
+  const selectedPanelMembers = useMemo(
+    () => getPanelMembers(selectedPanel),
+    [selectedPanel, miembrosPorCuadrilla],
   );
 
   const modalidadSeleccionada = normalizeModalidadPago(selectedPanel?.modalidadPago);
@@ -150,7 +252,7 @@ export default function EmployeeAssignmentPage() {
           },
           {
             label: "Operarios vinculados",
-            value: panels.reduce((sum, item) => sum + (item.miembros?.length ?? 0), 0),
+            value: panels.reduce((sum, item) => sum + getPanelMembers(item).length, 0),
             color: "text-blue-600",
           },
         ].map((stat) => (
@@ -199,7 +301,7 @@ export default function EmployeeAssignmentPage() {
                   Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong>
                 </p>
                 <p>
-                  Miembros activos: <strong>{selectedPanel.miembros?.length ?? 0}</strong>
+                  Miembros activos: <strong>{selectedPanelMembers.length}</strong>
                 </p>
               </div>
 
@@ -271,7 +373,7 @@ export default function EmployeeAssignmentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedPanel.miembros ?? []).map((member, index) => {
+                  {selectedPanelMembers.map((member, index) => {
                     const current = (selectedPanel.existingAssignments ?? []).find(
                       (item) => item.empleadoId === member.empleadoId,
                     );
@@ -365,7 +467,7 @@ export default function EmployeeAssignmentPage() {
                     <td className="px-4 py-3">
                       <Badge
                         label={item.estado}
-                        color={item.estado === "ACTIVA" || item.estado === "activo" ? "green" : "gray"}
+                        color={isActiveStatus(item.estado) ? "green" : "gray"}
                       />
                     </td>
                     <td className="px-4 py-3">

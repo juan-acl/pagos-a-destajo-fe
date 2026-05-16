@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
+import { isActiveStatus, isInactiveStatus, normalizeEstadoOperativo } from "@/utils/productionFlow";
 
 type Puesto = { id: number; nombre: string; };
 type Empleado = {
@@ -42,12 +43,12 @@ export default function EmpleadoModule() {
     const nombre = `${e.primerNombre} ${e.primerApellido} ${e.codigoEmpleado ?? ""}`.toLowerCase();
     const matchSearch = !search || nombre.includes(search.toLowerCase());
     const matchPuesto = !filterPuesto || String(e.pstPuesto) === filterPuesto;
-    const matchEstado = !filterEstado || e.estado === filterEstado;
+    const matchEstado = !filterEstado || normalizeEstadoOperativo(e.estado) === normalizeEstadoOperativo(filterEstado);
     return matchSearch && matchPuesto && matchEstado;
   }), [data, search, filterPuesto, filterEstado]);
 
-  const activos = data.filter(e => e.estado === "ACTIVO").length;
-  const inactivos = data.filter(e => e.estado === "INACTIVO").length;
+  const activos = data.filter(e => isActiveStatus(e.estado)).length;
+  const inactivos = data.filter(e => isInactiveStatus(e.estado)).length;
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); };
   const create = useMutation({ mutationFn: (d: EmpleadoForm) => api.post("/empleados", d), onSuccess: invalidate });
@@ -153,7 +154,7 @@ export default function EmpleadoModule() {
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-sm">{e.email}</td>
                     <td className="px-4 py-3">
-                      <Badge label={e.estado} color={e.estado === "ACTIVO" ? "green" : "gray"} />
+                      <Badge label={e.estado} color={isActiveStatus(e.estado) ? "green" : "gray"} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">

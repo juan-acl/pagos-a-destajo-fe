@@ -8,6 +8,7 @@ import {
   calculateInclusiveDays,
   getDiasText,
   getEstadoVigenciaDia,
+  isActiveStatus,
   modalidadLabel,
   money,
   normalizeDateInput,
@@ -404,7 +405,7 @@ export default function AsignacionOrdenCuadrilla() {
                           </div>
                         )}
                       </td>
-                      <td style={s.td}><span style={a.estado === "activo" ? s.activo : s.inactivo}>{a.estado.toUpperCase()}</span></td>
+                      <td style={s.td}><span style={isActiveStatus(a.estado) ? s.activo : s.inactivo}>{a.estado.toUpperCase()}</span></td>
                       <td style={{ ...s.td, ...s.actionCell }}>
                         <button style={s.btnEdit} onClick={() => edit(a)}>Editar</button>
                         <button style={s.btnDelete} onClick={() => remove.mutate(a.id)}>Eliminar</button>

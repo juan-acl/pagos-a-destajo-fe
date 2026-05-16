@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
+import { isActiveStatus, isInactiveStatus, normalizeEstadoOperativo } from "@/utils/productionFlow";
 
 type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; estado: string; };
 type Cuadrilla = { id: number; nombre: string; codigoCuadrilla: string | null; };
@@ -40,12 +41,12 @@ export default function MiembroCuadrillaModule() {
     const nombre = `${m.empleado?.primerNombre ?? ""} ${m.empleado?.primerApellido ?? ""} ${m.empleado?.codigoEmpleado ?? ""}`.toLowerCase();
     const matchSearch = !search || nombre.includes(search.toLowerCase());
     const matchCuadrilla = !filterCuadrilla || String(m.cuadrillaId) === filterCuadrilla;
-    const matchEstado = !filterEstado || m.estado === filterEstado;
+    const matchEstado = !filterEstado || normalizeEstadoOperativo(m.estado) === normalizeEstadoOperativo(filterEstado);
     return matchSearch && matchCuadrilla && matchEstado;
   }), [data, search, filterCuadrilla, filterEstado]);
 
-  const activos = data.filter(m => m.estado === "ACTIVO").length;
-  const inactivos = data.filter(m => m.estado === "INACTIVO").length;
+  const activos = data.filter(m => isActiveStatus(m.estado)).length;
+  const inactivos = data.filter(m => isInactiveStatus(m.estado)).length;
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); reset(); };
   const create = useMutation({ mutationFn: (d: MiembroForm) => api.post("/miembros-cuadrilla", d), onSuccess: invalidate });
@@ -155,7 +156,7 @@ export default function MiembroCuadrillaModule() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{formatFecha(m.fechaIngreso)}</td>
                     <td className="px-4 py-3">
-                      <Badge label={m.estado} color={m.estado === "ACTIVO" ? "green" : "gray"} />
+                      <Badge label={m.estado} color={isActiveStatus(m.estado) ? "green" : "gray"} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
@@ -184,7 +185,7 @@ export default function MiembroCuadrillaModule() {
               Empleado *
               <select name="empleadoId" value={form.empleadoId || ""} onChange={change} required className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
                 <option value="">Seleccione empleado...</option>
-                {empleados.filter(e => e.estado !== "INACTIVO").map(e => (
+                {empleados.filter(e => !isInactiveStatus(e.estado)).map(e => (
                   <option key={e.id} value={e.id}>{e.codigoEmpleado} - {e.primerNombre} {e.primerApellido}</option>
                 ))}
               </select>
