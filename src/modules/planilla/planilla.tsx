@@ -641,54 +641,10 @@ export default function Planilla() {
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
 
         {selectedPlanilla && (
-          <div
-            style={{
-              marginBottom: "14px",
-              padding: "10px 14px",
-              borderRadius: "6px",
-              background:
-                selectedPlanilla.modalidad === "PAGO_POR_DIAS"
-                  ? "#fef3c7"
-                  : "#dcfce7",
-              border: `1px solid ${selectedPlanilla.modalidad === "PAGO_POR_DIAS" ? "#fcd34d" : "#86efac"}`,
-            }}
-          >
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color:
-                  selectedPlanilla.modalidad === "PAGO_POR_DIAS"
-                    ? "#92400e"
-                    : "#166534",
-              }}
-            >
-              Modalidad: {modalidadLabel(selectedPlanilla.modalidad)}
-            </span>
-            {selectedPlanilla.modalidad === "PAGO_POR_DIAS" ? (
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "12px",
-                  color: "#92400e",
-                }}
-              >
-                Pago directo por día — no requiere validación de lotes ni
-                revisiones.
-              </p>
-            ) : (
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "12px",
-                  color: "#166534",
-                }}
-              >
-                Pago por destajo — se verificarán revisiones y lotes aprobados
-                antes de procesar.
-              </p>
-            )}
-          </div>
+          <div className="form-grid">
+  {}
+</div>
+         
         )}
 
         <form
