@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   ClipboardCheck,
   CalendarDays,
+  BarChart2,
 } from "lucide-react";
 import { useAuthStore, isAdmin } from "@/store/authStore";
 import logo from "@/assets/logo.png";
@@ -59,12 +60,9 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const adminLinks = [
     { to: "/", label: "Inicio", icon: Home },
+    { to: "/dashboard", label: "Dashboard BI", icon: BarChart2 },
     { to: "/medidas", label: "Medidas", icon: Ruler },
-    {
-      to: "/ordenes-trabajo",
-      label: "Órdenes de Trabajo",
-      icon: ClipboardCheck,
-    },
+    { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
     { to: "/areas", label: "Áreas", icon: Map },
     { to: "/planillas", label: "Planillas", icon: FileText },
     { to: "/registros-diarios", label: "Gestión de Días", icon: CalendarDays },
@@ -72,11 +70,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
     { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
     { to: "/puestos", label: "Posiciones", icon: Briefcase },
-    {
-      to: "/asignaciones-orden-cuadrilla",
-      label: "Asignaciones Orden",
-      icon: LayoutDashboard,
-    },
+    { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: LayoutDashboard },
     { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
     { to: "/production-review", label: "Revisiones", icon: Search },
     { to: "/production-lot", label: "Lotes", icon: Package },
@@ -94,9 +88,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   ];
 
   return (
-    <div
-      style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}
-    >
+    <div style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}>
       {isMobile && mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
@@ -112,11 +104,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       {showSidebar && (
         <aside
           style={{
-            width: isMobile
-              ? SIDEBAR_FULL
-              : collapsed
-                ? SIDEBAR_MINI
-                : SIDEBAR_FULL,
+            width: isMobile ? SIDEBAR_FULL : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL,
             minHeight: "100svh",
             background: "#fff",
             borderRight: "1px solid #E2E8F0",
@@ -138,8 +126,7 @@ export default function AppShell({ children }: PropsWithChildren) {
               borderBottom: "1px solid #E2E8F0",
               display: "flex",
               alignItems: "center",
-              justifyContent:
-                collapsed && !isMobile ? "center" : "space-between",
+              justifyContent: collapsed && !isMobile ? "center" : "space-between",
               minHeight: "64px",
             }}
           >
@@ -202,8 +189,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                   display: "flex",
                   alignItems: "center",
                   gap: collapsed && !isMobile ? 0 : "10px",
-                  justifyContent:
-                    collapsed && !isMobile ? "center" : "flex-start",
+                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                   padding: collapsed && !isMobile ? "10px" : "9px 12px",
                   borderRadius: "8px",
                   textDecoration: "none",
@@ -241,13 +227,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <p style={{ fontWeight: 600, color: "#1A202C", margin: 0 }}>
                   {empleado.primerNombre} {empleado.primerApellido}
                 </p>
-                <p
-                  style={{
-                    color: "#9CA3AF",
-                    margin: "2px 0 0",
-                    fontSize: "11px",
-                  }}
-                >
+                <p style={{ color: "#9CA3AF", margin: "2px 0 0", fontSize: "11px" }}>
                   {empleado.email}
                 </p>
               </div>
@@ -261,8 +241,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                   display: "flex",
                   alignItems: "center",
                   gap: collapsed && !isMobile ? 0 : "10px",
-                  justifyContent:
-                    collapsed && !isMobile ? "center" : "flex-start",
+                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
                   width: "100%",
                   padding: collapsed && !isMobile ? "10px" : "9px 12px",
                   borderRadius: "8px",
@@ -323,9 +302,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <Menu size={22} />
               </button>
             )}
-            <span
-              style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}
-            >
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>
               Pago a destajo
             </span>
           </div>
