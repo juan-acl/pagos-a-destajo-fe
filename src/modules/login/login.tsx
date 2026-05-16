@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/api";
-import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
-import logo from "@/assets/Logo.png";
+import { useAuthStore, ADMIN_PUESTOS } from "@/store/authStore";
+import logo from "@/assets/logo.png";
 
 const FIELD_IMAGE = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80";
 
@@ -25,8 +25,8 @@ export default function Login() {
       const res = await api.post<{ success: boolean; data: any }>("/empleados/login", form);
       if (res.data.success) {
         login(res.data.data);
-        const puedeAccederBackoffice = canAccessBackoffice(res.data.data);
-        navigate(puedeAccederBackoffice ? "/" : "/mi-panel");
+        const esAdmin = ADMIN_PUESTOS.includes(res.data.data.pstPuesto);
+        navigate(esAdmin ? "/" : "/mi-panel");
       } else {
         setError("Credenciales incorrectas");
       }
@@ -54,7 +54,7 @@ export default function Login() {
           <img src={FIELD_IMAGE} alt="Campo agrícola" className="absolute inset-0 w-full h-full object-cover" />
           <div className="relative z-20 h-full flex flex-col justify-between p-12 text-white">
             <div className="flex items-center gap-3">
-              <img src={logo} alt="PAD" className="w-9 h-9" style={{ filter: "invert(1)" }} />
+              <img src={logo} alt="PAD" className="w-9"/>
               <span className="text-2xl font-black tracking-tighter">PAD</span>
             </div>
             <div>

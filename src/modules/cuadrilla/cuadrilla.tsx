@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
-import { isActiveStatus, isInactiveStatus, normalizeEstadoOperativo } from "@/utils/productionFlow";
 
 type Area = { id: number; nombre: string; };
 type Cuadrilla = {
@@ -34,12 +33,12 @@ export default function CuadrillaModule() {
   const filtered = useMemo(() => data.filter(c => {
     const texto = `${c.nombre} ${c.codigoCuadrilla ?? ""}`.toLowerCase();
     const matchSearch = !search || texto.includes(search.toLowerCase());
-    const matchEstado = !filterEstado || normalizeEstadoOperativo(c.estado) === normalizeEstadoOperativo(filterEstado);
+    const matchEstado = !filterEstado || c.estado === filterEstado;
     return matchSearch && matchEstado;
   }), [data, search, filterEstado]);
 
-  const activas = data.filter(c => isActiveStatus(c.estado)).length;
-  const inactivas = data.filter(c => isInactiveStatus(c.estado)).length;
+  const activas = data.filter(c => c.estado === "ACTIVO").length;
+  const inactivas = data.filter(c => c.estado === "INACTIVO").length;
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); reset(); };
   const create = useMutation({ mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d), onSuccess: invalidate });
@@ -137,7 +136,7 @@ export default function CuadrillaModule() {
                       }
                     </td>
                     <td className="px-4 py-3">
-                      <Badge label={c.estado} color={isActiveStatus(c.estado) ? "green" : "gray"} />
+                      <Badge label={c.estado} color={c.estado === "ACTIVO" ? "green" : "gray"} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">

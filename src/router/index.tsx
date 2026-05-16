@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import Home from "@/modules/home/home";
 import Login from "@/modules/login/login";
-import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
+import { useAuthStore, isAdmin } from "@/store/authStore";
 
 const Empleado = lazy(() => import("@/modules/empleado/empleado"));
 const Cuadrilla = lazy(() => import("@/modules/cuadrilla/cuadrilla"));
@@ -28,7 +28,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { empleado } = useAuthStore();
-  return canAccessBackoffice(empleado) ? <>{children}</> : <Navigate to="/mi-panel" replace />;
+  return isAdmin(empleado?.pstPuesto) ? <>{children}</> : <Navigate to="/mi-panel" replace />;
 }
 
 export default function Router() {
@@ -57,7 +57,7 @@ export default function Router() {
                     <Route path="/areas" element={<AdminRoute><Area /></AdminRoute>} />
                     <Route path="/planillas" element={<AdminRoute><Planilla /></AdminRoute>} />
                     <Route path="/puestos" element={<AdminRoute><Puesto /></AdminRoute>} />
-                    <Route path="/registro-diario" element={<AdminRoute><RegistroDiario /></AdminRoute>} />
+                    <Route path="/registros-diarios" element={<AdminRoute><RegistroDiarioPage /></AdminRoute>} />
                     <Route path="/mi-panel" element={<PanelOperario />} />
                   </Routes>
                 </Suspense>

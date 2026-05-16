@@ -22,8 +22,8 @@ import {
   CalendarDays,
   BarChart2,
 } from "lucide-react";
-import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
-import logo from "@/assets/Logo.png";
+import { useAuthStore, isAdmin } from "@/store/authStore";
+import logo from "@/assets/logo.png";
 
 const SIDEBAR_FULL = 220;
 const SIDEBAR_MINI = 64;
@@ -64,8 +64,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     { to: "/medidas", label: "Medidas", icon: Ruler },
     { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
     { to: "/areas", label: "Áreas", icon: Map },
-    { to: "/puestos", label: "Puestos", icon: Briefcase },
-    { to: "/medidas", label: "Medidas", icon: Ruler },
+    { to: "/planillas", label: "Planillas", icon: FileText },
+    { to: "/registros-diarios", label: "Gestión de Días", icon: CalendarDays },
     { to: "/empleados", label: "Empleados", icon: Users },
     { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
     { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
@@ -74,16 +74,13 @@ export default function AppShell({ children }: PropsWithChildren) {
     { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
     { to: "/production-review", label: "Revisiones", icon: Search },
     { to: "/production-lot", label: "Lotes", icon: Package },
-    { to: "/registro-diario", label: "Registro diario", icon: CalendarDays },
-    { to: "/planillas", label: "Planillas", icon: FileText },
-    { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
   ];
 
   const operarioLinks = [
     { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
   ];
 
-  const links = canAccessBackoffice(empleado) ? adminLinks : operarioLinks;
+  const links = isAdmin(empleado?.pstPuesto) ? adminLinks : operarioLinks;
 
   const footerLinks = [
     { icon: Settings, label: "Settings", action: () => {} },
@@ -93,7 +90,15 @@ export default function AppShell({ children }: PropsWithChildren) {
   return (
     <div style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}>
       {isMobile && mobileOpen && (
-        <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 150 }} />
+        <div
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 150,
+          }}
+        />
       )}
 
       {showSidebar && (
@@ -126,28 +131,56 @@ export default function AppShell({ children }: PropsWithChildren) {
             }}
           >
             {(!collapsed || isMobile) && (
-              <img src={logo} style={{ filter: "invert(1)", width: "36px" }} alt="logo" />
+              <img
+                src={logo}
+                style={{ filter: "invert(1)", width: "36px" }}
+                alt="logo"
+              />
             )}
             {!isMobile && (
               <button
-                onClick={() => setCollapsed(p => !p)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}
+                onClick={() => setCollapsed((p) => !p)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6B7280",
+                  padding: "4px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <ChevronLeft size={18} style={{ transform: collapsed ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                <ChevronLeft
+                  size={18}
+                  style={{
+                    transform: collapsed ? "rotate(180deg)" : "none",
+                    transition: "transform 0.2s",
+                  }}
+                />
               </button>
             )}
             {isMobile && (
-              <button onClick={() => setMobileOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px" }}>
+              <button
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6B7280",
+                  padding: "4px",
+                }}
+              >
                 <X size={20} />
               </button>
             )}
           </div>
 
-          {/* Nav */}
           <nav style={{ padding: "12px 8px", flex: 1, overflowY: "auto" }}>
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink
-                key={to}
+                key={to + label}
                 to={to}
                 end={to === "/"}
                 onClick={() => isMobile && setMobileOpen(false)}
@@ -180,7 +213,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             ))}
           </nav>
 
-          {/* Footer */}
           <div style={{ padding: "12px 8px", borderTop: "1px solid #E2E8F0" }}>
             {(!collapsed || isMobile) && empleado && (
               <div
@@ -230,30 +262,43 @@ export default function AppShell({ children }: PropsWithChildren) {
       )}
 
       {/* Main */}
-      <div style={{
-        marginLeft: isMobile ? 0 : sidebarWidth,
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        transition: "margin-left 0.2s ease",
-        minWidth: 0,
-      }}>
-        {/* Topbar */}
-        <header style={{
-          height: "56px",
-          background: "#fff",
-          borderBottom: "1px solid #E2E8F0",
+      <div
+        style={{
+          marginLeft: isMobile ? 0 : sidebarWidth,
+          flex: 1,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}>
+          flexDirection: "column",
+          transition: "margin-left 0.2s ease",
+          minWidth: 0,
+        }}
+      >
+        <header
+          style={{
+            height: "56px",
+            background: "#fff",
+            borderBottom: "1px solid #E2E8F0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 20px",
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {isMobile && (
-              <button onClick={() => setMobileOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280", padding: "4px", display: "flex" }}>
+              <button
+                onClick={() => setMobileOpen(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#6B7280",
+                  padding: "4px",
+                  display: "flex",
+                }}
+              >
                 <Menu size={22} />
               </button>
             )}
@@ -271,10 +316,17 @@ export default function AppShell({ children }: PropsWithChildren) {
               onClick={handleLogout}
               title="Cerrar sesión"
               style={{
-                width: "32px", height: "32px", borderRadius: "50%",
-                background: "#2D6A4F", color: "#fff",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                background: "#2D6A4F",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
               }}
             >
               {initiales}
@@ -282,8 +334,13 @@ export default function AppShell({ children }: PropsWithChildren) {
           </div>
         </header>
 
-        {/* Content */}
-        <main style={{ flex: 1, padding: isMobile ? "16px" : "28px 32px", minWidth: 0 }}>
+        <main
+          style={{
+            flex: 1,
+            padding: isMobile ? "16px" : "28px 32px",
+            minWidth: 0,
+          }}
+        >
           {children}
         </main>
       </div>
