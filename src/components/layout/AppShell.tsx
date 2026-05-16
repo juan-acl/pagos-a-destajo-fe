@@ -1,9 +1,26 @@
 import { useState, useEffect, type PropsWithChildren } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
-  Home, Map, FileText, Users, Grid2x2, Link2, Briefcase,
-  ClipboardList, Search, Package, Settings, LogOut, Menu, X, ChevronLeft,
-  LayoutDashboard, Ruler, ClipboardCheck, CalendarDays, ListChecks
+  Home,
+  Map,
+  FileText,
+  Users,
+  Grid2x2,
+  Link2,
+  Briefcase,
+  Ruler,
+  ClipboardList,
+  Search,
+  Package,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  ChevronLeft,
+  LayoutDashboard,
+  ClipboardCheck,
+  CalendarDays,
+  BarChart2,
 } from "lucide-react";
 import { useAuthStore, canAccessBackoffice } from "@/store/authStore";
 import logo from "@/assets/Logo.png";
@@ -43,15 +60,18 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const adminLinks = [
     { to: "/", label: "Inicio", icon: Home },
+    { to: "/dashboard", label: "Dashboard BI", icon: BarChart2 },
+    { to: "/medidas", label: "Medidas", icon: Ruler },
+    { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
     { to: "/areas", label: "Áreas", icon: Map },
     { to: "/puestos", label: "Puestos", icon: Briefcase },
     { to: "/medidas", label: "Medidas", icon: Ruler },
     { to: "/empleados", label: "Empleados", icon: Users },
     { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
     { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-    { to: "/ordenes-trabajo", label: "Órdenes de trabajo", icon: ClipboardList },
-    { to: "/asignaciones-orden-cuadrilla", label: "Modalidad por cuadrilla", icon: ClipboardCheck },
-    { to: "/employee-assignment", label: "Asignaciones", icon: ListChecks },
+    { to: "/puestos", label: "Posiciones", icon: Briefcase },
+    { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: LayoutDashboard },
+    { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
     { to: "/production-review", label: "Revisiones", icon: Search },
     { to: "/production-lot", label: "Lotes", icon: Package },
     { to: "/registro-diario", label: "Registro diario", icon: CalendarDays },
@@ -72,35 +92,39 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div style={{ display: "flex", minHeight: "100svh", background: "#F8F9FA" }}>
-
       {isMobile && mobileOpen && (
         <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 150 }} />
       )}
 
       {showSidebar && (
-        <aside style={{
-          width: isMobile ? SIDEBAR_FULL : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL,
-          minHeight: "100svh",
-          background: "#fff",
-          borderRight: "1px solid #E2E8F0",
-          display: "flex",
-          flexDirection: "column",
-          position: "fixed",
-          top: 0, left: 0, bottom: 0,
-          zIndex: 200,
-          transition: "width 0.2s ease",
-          overflow: "hidden",
-        }}>
-
-          {/* Logo */}
-          <div style={{
-            padding: "20px 16px",
-            borderBottom: "1px solid #E2E8F0",
+        <aside
+          style={{
+            width: isMobile ? SIDEBAR_FULL : collapsed ? SIDEBAR_MINI : SIDEBAR_FULL,
+            minHeight: "100svh",
+            background: "#fff",
+            borderRight: "1px solid #E2E8F0",
             display: "flex",
-            alignItems: "center",
-            justifyContent: collapsed && !isMobile ? "center" : "space-between",
-            minHeight: "64px",
-          }}>
+            flexDirection: "column",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            zIndex: 200,
+            transition: "width 0.2s ease",
+            overflow: "hidden",
+          }}
+        >
+          {/* Logo */}
+          <div
+            style={{
+              padding: "20px 16px",
+              borderBottom: "1px solid #E2E8F0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed && !isMobile ? "center" : "space-between",
+              minHeight: "64px",
+            }}
+          >
             {(!collapsed || isMobile) && (
               <img src={logo} style={{ filter: "invert(1)", width: "36px" }} alt="logo" />
             )}
@@ -159,9 +183,21 @@ export default function AppShell({ children }: PropsWithChildren) {
           {/* Footer */}
           <div style={{ padding: "12px 8px", borderTop: "1px solid #E2E8F0" }}>
             {(!collapsed || isMobile) && empleado && (
-              <div style={{ padding: "10px 12px", marginBottom: "8px", background: "#F8F9FA", borderRadius: "8px", fontSize: "12px" }}>
-                <p style={{ fontWeight: 600, color: "#1A202C", margin: 0 }}>{empleado.primerNombre} {empleado.primerApellido}</p>
-                <p style={{ color: "#9CA3AF", margin: "2px 0 0", fontSize: "11px" }}>{empleado.email}</p>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  marginBottom: "8px",
+                  background: "#F8F9FA",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              >
+                <p style={{ fontWeight: 600, color: "#1A202C", margin: 0 }}>
+                  {empleado.primerNombre} {empleado.primerApellido}
+                </p>
+                <p style={{ color: "#9CA3AF", margin: "2px 0 0", fontSize: "11px" }}>
+                  {empleado.email}
+                </p>
               </div>
             )}
             {footerLinks.map(({ icon: Icon, label, action }) => (
@@ -221,7 +257,9 @@ export default function AppShell({ children }: PropsWithChildren) {
                 <Menu size={22} />
               </button>
             )}
-            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>Pago por modalidad</span>
+            <span style={{ fontSize: "15px", fontWeight: 600, color: "#1A202C" }}>
+              Pago a destajo
+            </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {empleado && (
