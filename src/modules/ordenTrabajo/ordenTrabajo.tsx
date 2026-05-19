@@ -5,10 +5,11 @@ import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
 
 type Medida = { id: number; nombre: string; iniciales: string; };
+type Modalidad = "DESTAJO" | "PAGO_POR_DIAS";
 type OrdenTrabajo = {
   id: number; numeroOrden: string; cantidadRequerida: number;
   medidaId?: number | null; pagoUnitario: number;
-  fechaLimite?: string | null; estado: string;
+  fechaLimite?: string | null; estado: string; modalidad: Modalidad;
 };
 type OrdenTrabajoForm = Omit<OrdenTrabajo, "id" | "numeroOrden">;
 
@@ -16,7 +17,7 @@ const ITEMS_PER_PAGE = 10;
 
 const empty: OrdenTrabajoForm = {
   cantidadRequerida: 0, medidaId: null,
-  pagoUnitario: 0, fechaLimite: "", estado: "activo",
+  pagoUnitario: 0, fechaLimite: "", estado: "activo", modalidad: "DESTAJO",
 };
 
 const fetcherOrdenes = () => api.get<{ data: OrdenTrabajo[] }>("/ordenes-trabajo").then(r => r.data.data);
@@ -61,7 +62,7 @@ export default function OrdenTrabajo() {
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setError(null); };
 
   const edit = (o: OrdenTrabajo) => {
-    setForm({ cantidadRequerida: o.cantidadRequerida, medidaId: o.medidaId ?? null, pagoUnitario: o.pagoUnitario, fechaLimite: o.fechaLimite ?? "", estado: o.estado });
+    setForm({ cantidadRequerida: o.cantidadRequerida, medidaId: o.medidaId ?? null, pagoUnitario: o.pagoUnitario, fechaLimite: o.fechaLimite ?? "", estado: o.estado, modalidad: o.modalidad ?? "DESTAJO" });
     setEditId(o.id); setOpen(true); setError(null);
   };
 
@@ -132,7 +133,7 @@ export default function OrdenTrabajo() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  {["N° Orden", "Cantidad", "Medida", "Pago unitario", "Fecha límite", "Estado", "Acciones"].map(h => (
+                  {["N° Orden", "Cantidad", "Medida", "Modalidad", "Pago unitario", "Fecha límite", "Estado", "Acciones"].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
                   ))}
                 </tr>
@@ -143,7 +144,13 @@ export default function OrdenTrabajo() {
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-500">{o.numeroOrden}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{o.cantidadRequerida}</td>
                     <td className="px-4 py-3"><Badge label={getMedidaNombre(o.medidaId)} color="blue" /></td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">Q {Number(o.pagoUnitario).toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <Badge label={o.modalidad ?? "DESTAJO"} color={o.modalidad === "PAGO_POR_DIAS" ? "amber" : "green"} />
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      Q {Number(o.pagoUnitario).toFixed(2)}
+                      <span className="ml-1 text-xs font-normal text-gray-400">{o.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}</span>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{o.fechaLimite ? new Date(o.fechaLimite).toLocaleDateString() : "-"}</td>
                     <td className="px-4 py-3"><Badge label={o.estado.toUpperCase()} color={o.estado === "activo" ? "green" : "gray"} /></td>
                     <td className="px-4 py-3">
@@ -166,33 +173,23 @@ export default function OrdenTrabajo() {
               Mostrando {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, data.length)} de {data.length} órdenes
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50"
-              >
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
                 ← Anterior
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
-                >
+                <button key={n} onClick={() => setPage(n)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
                   {n}
                 </button>
               ))}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50"
-              >
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
                 Siguiente →
               </button>
             </div>
           </div>
         )}
-
         {totalPages <= 1 && data.length > 0 && (
           <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
             Mostrando {data.length} orden(es) de trabajo
@@ -203,24 +200,18 @@ export default function OrdenTrabajo() {
       {/* Modal */}
       <Modal open={open} title={editId ? "Editar Orden de Trabajo" : "Nueva Orden de Trabajo"} subtitle="El número de orden se genera automáticamente al guardar." onClose={reset}>
         <form onSubmit={submit}>
-
-          {/* Error dentro del modal */}
           {error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
               <span>{error}</span>
               <button type="button" onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
             </div>
           )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {editId && (
               <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
                 Número de orden
-                <input
-                  value={data.find(o => o.id === editId)?.numeroOrden ?? ""}
-                  readOnly
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal"
-                />
+                <input value={data.find(o => o.id === editId)?.numeroOrden ?? ""} readOnly
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
               </label>
             )}
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -235,8 +226,17 @@ export default function OrdenTrabajo() {
               </select>
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Pago unitario *
-              <input name="pagoUnitario" type="number" value={form.pagoUnitario} onChange={change} required min={0} step="0.01" placeholder="Ej. 2.50" className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
+              Modalidad de pago *
+              <select name="modalidad" value={form.modalidad} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
+                <option value="DESTAJO">Destajo (por pieza)</option>
+                <option value="PAGO_POR_DIAS">Pago por día</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {form.modalidad === "PAGO_POR_DIAS" ? "Pago por día *" : "Pago unitario (por pieza) *"}
+              <input name="pagoUnitario" type="number" value={form.pagoUnitario} onChange={change} required min={0} step="0.01"
+                placeholder={form.modalidad === "PAGO_POR_DIAS" ? "Ej. 150.00" : "Ej. 2.50"}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Fecha límite
@@ -254,7 +254,6 @@ export default function OrdenTrabajo() {
               </div>
             </label>
           </div>
-
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={create.isPending || update.isPending} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
