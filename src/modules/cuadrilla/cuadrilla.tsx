@@ -4,6 +4,8 @@ import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
 
+const ITEMS_PER_PAGE = 10;
+
 type Area = { id: number; nombre: string; };
 type Cuadrilla = {
   id: number;
@@ -12,9 +14,9 @@ type Cuadrilla = {
   areaId?: number | null;
   estado: string;
 };
-type CuadrillaForm = Omit<Cuadrilla, "id">;
+type CuadrillaForm = Omit<Cuadrilla, "id" | "codigoCuadrilla">;
 
-const empty: CuadrillaForm = { nombre: "", codigoCuadrilla: "", areaId: null, estado: "ACTIVO" };
+const empty: CuadrillaForm = { nombre: "", areaId: null, estado: "ACTIVO" };
 
 const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 const fetchAreas = () => api.get<{ data: Area[] }>("/area").then(r => r.data.data);
@@ -26,6 +28,8 @@ export default function CuadrillaModule() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data = [], isLoading } = useQuery({ queryKey: ["cuadrillas"], queryFn: fetchCuadrillas });
   const { data: areas = [] } = useQuery({ queryKey: ["areas"], queryFn: fetchAreas });
@@ -37,24 +41,54 @@ export default function CuadrillaModule() {
     return matchSearch && matchEstado;
   }), [data, search, filterEstado]);
 
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+    [filtered, page],
+  );
+
   const activas = data.filter(c => c.estado === "ACTIVO").length;
   const inactivas = data.filter(c => c.estado === "INACTIVO").length;
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); reset(); };
-  const create = useMutation({ mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d), onSuccess: invalidate });
-  const update = useMutation({ mutationFn: (d: CuadrillaForm) => api.put(`/cuadrillas/${editId}`, d), onSuccess: invalidate });
-  const remove = useMutation({ mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["cuadrillas"] }) });
 
-  const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
+  const create = useMutation({
+    mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d),
+    onSuccess: invalidate,
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al guardar la cuadrilla. Verifica que el nombre no esté repetido y que todos los campos requeridos estén completos."),
+  });
+
+  const update = useMutation({
+    mutationFn: (d: CuadrillaForm) => api.put(`/cuadrillas/${editId}`, d),
+    onSuccess: invalidate,
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al actualizar la cuadrilla."),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cuadrillas"] }),
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al eliminar la cuadrilla."),
+  });
+
+  const reset = () => { setForm(empty); setEditId(null); setOpen(false); setError(null); };
+
   const edit = (c: Cuadrilla) => {
-    setForm({ nombre: c.nombre, codigoCuadrilla: c.codigoCuadrilla ?? "", areaId: c.areaId ?? null, estado: c.estado });
-    setEditId(c.id); setOpen(true);
+    setForm({ nombre: c.nombre, areaId: c.areaId ?? null, estado: c.estado });
+    setEditId(c.id); setOpen(true); setError(null);
   };
+
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(p => ({ ...p, [name]: name === "areaId" ? (value ? Number(value) : null) : value }));
   };
-  const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!form.nombre.trim()) { setError("El nombre de la cuadrilla es obligatorio."); return; }
+    editId ? update.mutate(form) : create.mutate(form);
+  };
+
   const getNombreArea = (id: number | null | undefined) => areas.find(a => a.id === id)?.nombre ?? null;
 
   return (
@@ -84,15 +118,21 @@ export default function CuadrillaModule() {
         ))}
       </div>
 
+      {/* Error global */}
+      {error && !open && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
-        <input
-          placeholder="Buscar por nombre o código..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
-        />
-        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+        <input placeholder="Buscar por nombre o código..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
+        <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
           <option value="ACTIVO">ACTIVO</option>
           <option value="INACTIVO">INACTIVO</option>
@@ -116,7 +156,7 @@ export default function CuadrillaModule() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c, i) => (
+                {paginated.map((c, i) => (
                   <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs text-gray-500 font-semibold">{c.codigoCuadrilla ?? "-"}</span>
@@ -132,8 +172,7 @@ export default function CuadrillaModule() {
                     <td className="px-4 py-3">
                       {getNombreArea(c.areaId)
                         ? <Badge label={getNombreArea(c.areaId)!} color="amber" />
-                        : <span className="text-xs text-gray-400">Sin área</span>
-                      }
+                        : <span className="text-xs text-gray-400">Sin área</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge label={c.estado} color={c.estado === "ACTIVO" ? "green" : "gray"} />
@@ -150,7 +189,32 @@ export default function CuadrillaModule() {
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              Mostrando {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} cuadrillas
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
+                ← Anterior
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} onClick={() => setPage(n)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
+                  {n}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        )}
+        {totalPages <= 1 && filtered.length > 0 && (
           <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
             Mostrando {filtered.length} de {data.length} cuadrillas
           </p>
@@ -158,25 +222,39 @@ export default function CuadrillaModule() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "Editar Cuadrilla" : "Nueva Cuadrilla"} subtitle="Complete la información para registrar la cuadrilla." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Cuadrilla" : "Nueva Cuadrilla"} subtitle="El código de la cuadrilla se genera automáticamente al guardar." onClose={reset}>
         <form onSubmit={submit}>
+
+          {/* Error dentro del modal */}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {editId && (
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
+                Código de Cuadrilla
+                <input value={data.find(c => c.id === editId)?.codigoCuadrilla ?? ""} readOnly
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
+              </label>
+            )}
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Nombre *
-              <input name="nombre" placeholder="Ej. Cuadrilla Norte" value={form.nombre} onChange={change} required className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Código
-              <input name="codigoCuadrilla" placeholder="Ej. CUA-001" value={form.codigoCuadrilla ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
+              <input name="nombre" placeholder="Ej. Cuadrilla Norte" value={form.nombre} onChange={change} required
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Área
-              <select name="areaId" value={form.areaId ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
+              <select name="areaId" value={form.areaId ?? ""} onChange={change}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
                 <option value="">Sin área</option>
                 {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
               Estado
               <div className="flex gap-4 mt-1">
                 {["ACTIVO", "INACTIVO"].map(est => (
@@ -188,10 +266,12 @@ export default function CuadrillaModule() {
               </div>
             </label>
           </div>
+
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={create.isPending || update.isPending} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
-              {editId ? "Actualizar" : "Guardar Cuadrilla"}
+            <button type="submit" disabled={create.isPending || update.isPending}
+              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
+              {editId ? "Actualizar Cuadrilla" : "Guardar Cuadrilla"}
             </button>
           </div>
         </form>

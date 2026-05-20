@@ -4,6 +4,8 @@ import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
 
+const ITEMS_PER_PAGE = 10;
+
 type Puesto = { id: number; nombre: string; };
 type Empleado = {
   id: number;
@@ -16,11 +18,11 @@ type Empleado = {
   pstPuesto?: number | null;
   estado: string;
 };
-type EmpleadoForm = Omit<Empleado, "id"> & { password: string };
+type EmpleadoForm = Omit<Empleado, "id" | "codigoEmpleado"> & { password: string };
 
 const empty: EmpleadoForm = {
   primerNombre: "", segundoNombre: "", primerApellido: "", segundoApellido: "",
-  email: "", password: "", codigoEmpleado: "", pstPuesto: null, estado: "ACTIVO",
+  email: "", password: "", pstPuesto: null, estado: "ACTIVO",
 };
 
 const fetchEmpleados = () => api.get<{ data: Empleado[] }>("/empleados").then(r => r.data.data);
@@ -34,6 +36,8 @@ export default function EmpleadoModule() {
   const [search, setSearch] = useState("");
   const [filterPuesto, setFilterPuesto] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data = [], isLoading } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
   const { data: puestos = [] } = useQuery({ queryKey: ["puestos"], queryFn: fetchPuestos });
@@ -46,24 +50,58 @@ export default function EmpleadoModule() {
     return matchSearch && matchPuesto && matchEstado;
   }), [data, search, filterPuesto, filterEstado]);
 
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+    [filtered, page],
+  );
+
   const activos = data.filter(e => e.estado === "ACTIVO").length;
   const inactivos = data.filter(e => e.estado === "INACTIVO").length;
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); };
-  const create = useMutation({ mutationFn: (d: EmpleadoForm) => api.post("/empleados", d), onSuccess: invalidate });
-  const update = useMutation({ mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d), onSuccess: invalidate });
-  const remove = useMutation({ mutationFn: (id: number) => api.delete(`/empleados/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["empleados"] }) });
 
-  const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
+  const create = useMutation({
+    mutationFn: (d: EmpleadoForm) => api.post("/empleados", d),
+    onSuccess: invalidate,
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al guardar el empleado. Verifica que el correo no esté repetido y que todos los campos requeridos estén completos."),
+  });
+
+  const update = useMutation({
+    mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d),
+    onSuccess: invalidate,
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al actualizar el empleado."),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/empleados/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["empleados"] }),
+    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al eliminar el empleado."),
+  });
+
+  const reset = () => { setForm(empty); setEditId(null); setOpen(false); setError(null); };
+
   const edit = (e: Empleado) => {
-    setForm({ ...e, password: "", segundoNombre: e.segundoNombre ?? "", segundoApellido: e.segundoApellido ?? "", codigoEmpleado: e.codigoEmpleado ?? "" });
-    setEditId(e.id); setOpen(true);
+    setForm({ ...e, password: "", segundoNombre: e.segundoNombre ?? "", segundoApellido: e.segundoApellido ?? "" });
+    setEditId(e.id); setOpen(true); setError(null);
   };
+
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(p => ({ ...p, [name]: name === "pstPuesto" ? (value ? Number(value) : null) : value }));
   };
-  const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!form.primerNombre.trim()) { setError("El primer nombre es obligatorio."); return; }
+    if (!form.primerApellido.trim()) { setError("El primer apellido es obligatorio."); return; }
+    if (!form.email.trim()) { setError("El correo electrónico es obligatorio."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError("El correo electrónico no tiene un formato válido."); return; }
+    if (!editId && !form.password.trim()) { setError("La contraseña temporal es obligatoria."); return; }
+    editId ? update.mutate(form) : create.mutate(form);
+  };
+
   const getNombrePuesto = (id: number | null | undefined) => puestos.find(p => p.id === id)?.nombre ?? null;
 
   return (
@@ -93,19 +131,24 @@ export default function EmpleadoModule() {
         ))}
       </div>
 
+      {/* Error global */}
+      {error && !open && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
-        <input
-          placeholder="Buscar por nombre o código..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
-        />
-        <select value={filterPuesto} onChange={e => setFilterPuesto(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+        <input placeholder="Buscar por nombre o código..." value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
+        <select value={filterPuesto} onChange={e => { setFilterPuesto(e.target.value); setPage(1); }} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Puesto: Todos</option>
           {puestos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
-        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+        <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
           <option value="ACTIVO">ACTIVO</option>
           <option value="INACTIVO">INACTIVO</option>
@@ -129,7 +172,7 @@ export default function EmpleadoModule() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e, i) => (
+                {paginated.map((e, i) => (
                   <tr key={e.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs text-gray-500 font-semibold">{e.codigoEmpleado ?? "-"}</span>
@@ -148,8 +191,7 @@ export default function EmpleadoModule() {
                     <td className="px-4 py-3">
                       {getNombrePuesto(e.pstPuesto)
                         ? <Badge label={getNombrePuesto(e.pstPuesto)!} color="green" />
-                        : <span className="text-xs text-gray-400">Sin puesto</span>
-                      }
+                        : <span className="text-xs text-gray-400">Sin puesto</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-sm">{e.email}</td>
                     <td className="px-4 py-3">
@@ -167,7 +209,32 @@ export default function EmpleadoModule() {
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              Mostrando {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} empleados
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
+                ← Anterior
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} onClick={() => setPage(n)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
+                  {n}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        )}
+        {totalPages <= 1 && filtered.length > 0 && (
           <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
             Mostrando {filtered.length} de {data.length} empleados
           </p>
@@ -175,29 +242,49 @@ export default function EmpleadoModule() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "Editar Empleado" : "Registro de Empleado"} subtitle="Complete la información para integrar al nuevo miembro del equipo." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Empleado" : "Registro de Empleado"} subtitle="El código del empleado se genera automáticamente al guardar." onClose={reset}>
         <form onSubmit={submit}>
+
+          {/* Error dentro del modal */}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {editId && (
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Código de Empleado
+                <input value={data.find(e => e.id === editId)?.codigoEmpleado ?? ""} readOnly
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
+              </label>
+            )}
             {[
-              { name: "codigoEmpleado", label: "Código de Empleado", placeholder: "EMP-2024-", required: false },
-              { name: "primerApellido", label: "Primer Apellido *", placeholder: "Ej. García", required: true },
               { name: "primerNombre", label: "Primer Nombre *", placeholder: "Ej. Roberto", required: true },
-              { name: "segundoApellido", label: "Segundo Apellido", placeholder: "Ej. Méndez", required: false },
               { name: "segundoNombre", label: "Segundo Nombre", placeholder: "Ej. Antonio", required: false },
+              { name: "primerApellido", label: "Primer Apellido *", placeholder: "Ej. García", required: true },
+              { name: "segundoApellido", label: "Segundo Apellido", placeholder: "Ej. Méndez", required: false },
               { name: "email", label: "Correo Electrónico *", placeholder: "nombre@tpm-agri.com", required: true },
             ].map(f => (
               <label key={f.name} className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 {f.label}
-                <input name={f.name} placeholder={f.placeholder} value={(form as any)[f.name] ?? ""} onChange={change} required={f.required} type={f.name === "email" ? "email" : "text"} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
+                <input name={f.name} placeholder={f.placeholder} value={(form as any)[f.name] ?? ""} onChange={change}
+                  required={f.required} type={f.name === "email" ? "email" : "text"}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
               </label>
             ))}
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               {editId ? "Nueva Contraseña (opcional)" : "Contraseña Temporal *"}
-              <input name="password" type="password" placeholder="••••••••" value={form.password} onChange={change} required={!editId} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
+              <input name="password" type="password" placeholder="••••••••" value={form.password} onChange={change}
+                required={!editId}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Puesto Asignado
-              <select name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
+              <select name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
                 <option value="">Seleccione puesto...</option>
                 {puestos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
@@ -214,9 +301,11 @@ export default function EmpleadoModule() {
               </div>
             </label>
           </div>
+
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={create.isPending || update.isPending} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
+            <button type="submit" disabled={create.isPending || update.isPending}
+              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
               {editId ? "Actualizar Empleado" : "Guardar Empleado"}
             </button>
           </div>
@@ -224,4 +313,4 @@ export default function EmpleadoModule() {
       </Modal>
     </div>
   );
-} 
+}
