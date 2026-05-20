@@ -58,29 +58,52 @@ export default function AppShell({ children }: PropsWithChildren) {
     ? `${empleado.primerNombre[0]}${empleado.primerApellido[0]}`
     : "??";
 
-  const adminLinks = [
-    { to: "/", label: "Inicio", icon: Home },
-    { to: "/dashboard", label: "Dashboard BI", icon: BarChart2 },
-    { to: "/medidas", label: "Medidas", icon: Ruler },
-    { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
-    { to: "/areas", label: "Áreas", icon: Map },
-    { to: "/planillas", label: "Planillas", icon: FileText },
-    { to: "/registros-diarios", label: "Gestión de Días", icon: CalendarDays },
-    { to: "/empleados", label: "Empleados", icon: Users },
-    { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
-    { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
-    { to: "/puestos", label: "Posiciones", icon: Briefcase },
-    { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: LayoutDashboard },
-    { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
-    { to: "/production-review", label: "Revisiones", icon: Search },
-    { to: "/production-lot", label: "Lotes", icon: Package },
+  const adminGroups = [
+    {
+      title: "Principal",
+      links: [
+        { to: "/", label: "Inicio", icon: Home },
+        { to: "/dashboard", label: "Dashboard BI", icon: BarChart2 },
+      ],
+    },
+    {
+      title: "Administración",
+      links: [
+        { to: "/medidas", label: "Medidas", icon: Ruler },
+        { to: "/areas", label: "Áreas", icon: Map },
+        { to: "/puestos", label: "Puestos", icon: Briefcase },
+        { to: "/empleados", label: "Empleados", icon: Users },
+        { to: "/cuadrillas", label: "Cuadrillas", icon: Grid2x2 },
+        { to: "/miembros-cuadrilla", label: "Miembros de cuadrilla", icon: Link2 },
+      ],
+    },
+    {
+      title: "Producción",
+      links: [
+        { to: "/ordenes-trabajo", label: "Órdenes de Trabajo", icon: ClipboardCheck },
+        { to: "/asignaciones-orden-cuadrilla", label: "Asignaciones Orden", icon: LayoutDashboard },
+        { to: "/employee-assignment", label: "Asignaciones", icon: ClipboardList },
+        { to: "/production-review", label: "Revisiones", icon: Search },
+        { to: "/production-lot", label: "Lotes", icon: Package },
+      ],
+    },
+    {
+      title: "Pagos",
+      links: [
+        { to: "/registros-diarios", label: "Gestión de Días", icon: CalendarDays },
+        { to: "/planillas", label: "Planillas", icon: FileText },
+      ],
+    },
   ];
 
-  const operarioLinks = [
-    { to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard },
+  const operarioGroups = [
+    {
+      title: "Operario",
+      links: [{ to: "/mi-panel", label: "Mi Panel", icon: LayoutDashboard }],
+    },
   ];
 
-  const links = isAdmin(empleado?.pstPuesto) ? adminLinks : operarioLinks;
+  const linkGroups = isAdmin(empleado?.pstPuesto) ? adminGroups : operarioGroups;
 
   const footerLinks = [
     { icon: Settings, label: "Settings", action: () => {} },
@@ -178,38 +201,57 @@ export default function AppShell({ children }: PropsWithChildren) {
           </div>
 
           <nav style={{ padding: "12px 8px", flex: 1, overflowY: "auto" }}>
-            {links.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to + label}
-                to={to}
-                end={to === "/"}
-                onClick={() => isMobile && setMobileOpen(false)}
-                title={collapsed && !isMobile ? label : undefined}
-                style={({ isActive }) => ({
-                  display: "flex",
-                  alignItems: "center",
-                  gap: collapsed && !isMobile ? 0 : "10px",
-                  justifyContent: collapsed && !isMobile ? "center" : "flex-start",
-                  padding: collapsed && !isMobile ? "10px" : "9px 12px",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  fontSize: "14px",
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? "#2D6A4F" : "#6B7280",
-                  background: isActive ? "rgba(45,106,79,0.08)" : "transparent",
-                  marginBottom: "2px",
-                  transition: "all 0.15s",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                })}
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
-                    {(!collapsed || isMobile) && <span>{label}</span>}
-                  </>
+            {linkGroups.map((group) => (
+              <div key={group.title} style={{ marginBottom: "10px" }}>
+                {(!collapsed || isMobile) && (
+                  <div
+                    style={{
+                      padding: "10px 12px 6px",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "#9CA3AF",
+                    }}
+                  >
+                    {group.title}
+                  </div>
                 )}
-              </NavLink>
+
+                {group.links.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === "/"}
+                    onClick={() => isMobile && setMobileOpen(false)}
+                    title={collapsed && !isMobile ? label : undefined}
+                    style={({ isActive }) => ({
+                      display: "flex",
+                      alignItems: "center",
+                      gap: collapsed && !isMobile ? 0 : "10px",
+                      justifyContent: collapsed && !isMobile ? "center" : "flex-start",
+                      padding: collapsed && !isMobile ? "10px" : "9px 12px",
+                      borderRadius: "8px",
+                      textDecoration: "none",
+                      fontSize: "14px",
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? "#2D6A4F" : "#6B7280",
+                      background: isActive ? "rgba(45,106,79,0.08)" : "transparent",
+                      marginBottom: "2px",
+                      transition: "all 0.15s",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                    })}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
+                        {(!collapsed || isMobile) && <span>{label}</span>}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </nav>
 

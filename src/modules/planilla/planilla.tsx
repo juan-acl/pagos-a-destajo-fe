@@ -27,17 +27,33 @@ import Stats from "@/components/commons/stats";
 import Filters, { type Option } from "@/components/commons/filters";
 import { planillaStats } from "@/constants/planilla.constants";
 import { useFilter } from "@/hooks/useFilter";
+import { useAuthStore } from "@/store/authStore";
 import { getErrorMessage } from "@/utils/api";
 import { BarChart, CircleCheckBig, CircleX } from "lucide-react";
 
 const today = new Date().toISOString().split("T")[0];
 
+function normalizeModalidad(m?: Modalidad | string | null) {
+  const value = String(m ?? "DESTAJO")
+    .trim()
+    .toUpperCase()
+    .replace(/Á/g, "A");
+
+  return ["PAGO_POR_DIA", "PAGO_POR_DIAS", "POR_DIA", "POR_DIAS"].includes(value)
+    ? "PAGO_POR_DIAS"
+    : "DESTAJO";
+}
+
+function isPagoPorDias(m?: Modalidad | string | null) {
+  return normalizeModalidad(m) === "PAGO_POR_DIAS";
+}
+
 function modalidadLabel(m?: Modalidad | string | null) {
-  return m === "PAGO_POR_DIAS" ? "Por día" : "Destajo";
+  return isPagoPorDias(m) ? "Por día" : "Destajo";
 }
 
 function modalidadColor(m?: Modalidad | string | null) {
-  return m === "PAGO_POR_DIAS" ? "#d97706" : "#16a34a";
+  return isPagoPorDias(m) ? "#d97706" : "#16a34a";
 }
 
 function planillaHeadersDestajo() {
@@ -73,6 +89,7 @@ const numericEvidencia = new Set(["montoConfirmado"]);
 
 export default function Planilla() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
 
   const [generarOpen, setGenerarOpen] = useState(false);
   const [selectedOrden, setSelectedOrden] = useState<OrdenTrabajo | null>(null);
@@ -90,6 +107,20 @@ export default function Planilla() {
   const [detalleId, setDetalleId] = useState<number | null>(null);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const responsableLogueado = useMemo(() => {
+    const nombreCompleto = [
+      empleado?.primerNombre,
+      empleado?.segundoNombre,
+      empleado?.primerApellido,
+      empleado?.segundoApellido,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return nombreCompleto || empleado?.email || "";
+  }, [empleado]);
 
   // Rango de fechas para PAGO_POR_DIAS
   const [fechaInicio, setFechaInicio] = useState(today);
@@ -117,7 +148,7 @@ export default function Planilla() {
     retry: false,
   });
 
-  const esPorDias = selectedOrden?.modalidad === "PAGO_POR_DIAS";
+  const esPorDias = isPagoPorDias(selectedOrden?.modalidad);
 
   const { data: preview, isLoading: previewLoading } = useQuery({
     queryKey: [
@@ -217,7 +248,13 @@ export default function Planilla() {
 
   const openEjecutar = (p: Planilla) => {
     setSelectedPlanilla(p);
-    setEvidencia(emptyEvidencia(p.montoTotal));
+    setEvidencia({
+      ...emptyEvidencia(p.montoTotal),
+      responsableEntrega: responsableLogueado,
+      fechaEntrega: today,
+      usuarioPagoId: empleado?.id ?? null,
+      usuarioPagoNombre: responsableLogueado,
+    });
     setErrorMsg(null);
     setEjecutarOpen(true);
   };
@@ -262,8 +299,9 @@ export default function Planilla() {
       },
     },
     {
-      accessorKey: "loteProduccion.numeroLote",
+      id: "lote",
       header: "Lote",
+      accessorFn: (row) => row.loteProduccion?.numeroLote ?? "-",
       cell: (info) => (info.getValue() as string) ?? "-",
     },
     {
@@ -386,7 +424,7 @@ export default function Planilla() {
                 <option key={o.id} value={o.id}>
                   #{o.numeroOrden} [{modalidadLabel(o.modalidad)}] — Q{" "}
                   {Number(o.pagoUnitario).toFixed(2)}
-                  {o.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}
+                  {isPagoPorDias(o.modalidad) ? "/día" : "/pieza"}
                 </option>
               ))}
             </select>
@@ -421,7 +459,7 @@ export default function Planilla() {
             </div>
           )}
 
-          {selectedOrden?.modalidad === "PAGO_POR_DIAS" && (
+          {isPagoPorDias(selectedOrden?.modalidad) && (
             <>
               <label style={s.label}>
                 Fecha inicio *
@@ -640,12 +678,7 @@ export default function Planilla() {
       >
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
 
-        {selectedPlanilla && (
-          <div className="form-grid">
-  {}
-</div>
-         
-        )}
+
 
         <form
           onSubmit={(e) => {
@@ -688,9 +721,10 @@ export default function Planilla() {
                   <input
                     name="responsableEntrega"
                     value={evidencia.responsableEntrega}
-                    onChange={changeEvidencia}
+                    readOnly
                     required
-                    style={s.input}
+                    style={s.inputReadonly}
+                    title="Se toma automáticamente del usuario logueado"
                   />
                 </label>
                 <label style={s.label}>
@@ -804,7 +838,7 @@ export default function Planilla() {
         title="Resultados de producción"
         subtitle={
           detalle
-            ? `${detalle.planilla.codigoPlanilla ?? `#${detalle.planilla.numeroPago}`} · ${modalidadLabel(detalle.modalidad)} · Q ${detalle.pagoUnitario.toFixed(2)}${detalle.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}${detalle.lote ? ` · Lote ${detalle.lote.numeroLote}` : ""}`
+            ? `${detalle.planilla.codigoPlanilla ?? `#${detalle.planilla.numeroPago}`} · ${modalidadLabel(detalle.modalidad)} · Q ${detalle.pagoUnitario.toFixed(2)}${isPagoPorDias(detalle.modalidad) ? "/día" : "/pieza"}${detalle.lote ? ` · Lote ${detalle.lote.numeroLote}` : ""}`
             : "Cargando..."
         }
         onClose={() => setDetalleId(null)}
@@ -815,7 +849,7 @@ export default function Planilla() {
           </p>
         ) : detalle ? (
           <>
-            {detalle.modalidad === "PAGO_POR_DIAS" ? (
+            {isPagoPorDias(detalle.modalidad) ? (
               <table style={s.previewTable}>
                 <thead>
                   <tr>

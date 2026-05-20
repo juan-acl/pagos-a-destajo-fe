@@ -137,6 +137,8 @@ export type EvidenciaTransferencia = {
   numeroCuenta: string;
   numeroTransferencia: string;
   montoConfirmado: number;
+  usuarioPagoId?: number | null;
+  usuarioPagoNombre?: string;
 };
 
 export type EvidenciaCheque = {
@@ -145,6 +147,8 @@ export type EvidenciaCheque = {
   bancoEmisor: string;
   fechaCheque: string;
   montoConfirmado: number;
+  usuarioPagoId?: number | null;
+  usuarioPagoNombre?: string;
 };
 
 export type EvidenciaEfectivo = {
@@ -152,6 +156,8 @@ export type EvidenciaEfectivo = {
   responsableEntrega: string;
   fechaEntrega: string;
   montoConfirmado: number;
+  usuarioPagoId?: number | null;
+  usuarioPagoNombre?: string;
 };
 
 export type EvidenciaPago =
@@ -170,6 +176,8 @@ export type EvidenciaForm = {
   fechaCheque: string;
   responsableEntrega: string;
   fechaEntrega: string;
+  usuarioPagoId?: number | null;
+  usuarioPagoNombre?: string;
 };
 
 export const emptyEvidencia = (monto: number): EvidenciaForm => ({
@@ -183,10 +191,17 @@ export const emptyEvidencia = (monto: number): EvidenciaForm => ({
   fechaCheque: "",
   responsableEntrega: "",
   fechaEntrega: "",
+  usuarioPagoId: null,
+  usuarioPagoNombre: "",
 });
 
 export function buildEvidencia(form: EvidenciaForm): EvidenciaPago {
-  const base = { montoConfirmado: form.montoConfirmado };
+  const base = {
+    montoConfirmado: form.montoConfirmado,
+    usuarioPagoId: form.usuarioPagoId ?? null,
+    usuarioPagoNombre:
+      form.usuarioPagoNombre || form.responsableEntrega || undefined,
+  };
   if (form.metodoPago === "TRANSFERENCIA") {
     return {
       ...base,
