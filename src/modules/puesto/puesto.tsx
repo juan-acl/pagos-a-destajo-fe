@@ -17,13 +17,24 @@ import {
 } from "@/constants/puesto.constants";
 import type { AxiosError } from "node_modules/axios/index.d.cts";
 import { getErrorMessage } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { PUESTO_TOUR_STEPS } from "./tour";
+
+const ALLOWED_CHARS = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]*$/;
+const ITEMS_PER_PAGE = 10;
 
 export default function Puesto() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [form, setForm] = useState<PuestoForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+
+  const { startTour } = useTour(PUESTO_TOUR_STEPS, "puesto", empleado?.id);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["position-workers"],
@@ -36,6 +47,22 @@ export default function Puesto() {
       filterableFields: ["nombre", "descripcion", "estado"],
       exactMatchFields: ["estado"],
     });
+
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const paginated = useMemo(
+    () =>
+      filteredData.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+    [filteredData, page],
+  );
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+  const handleFilter = (field: string, val: string) => {
+    setFilter(field, val);
+    setPage(1);
+  };
 
   const stats = useMemo(() => {
     return puestoStats.map((stat) => {
@@ -107,6 +134,7 @@ export default function Puesto() {
     setEditId(null);
     setOpen(false);
     setErrorMessage(null);
+    setFieldErrors({});
   };
 
   const edit = (p: Puesto) => {
@@ -115,6 +143,7 @@ export default function Puesto() {
       descripcion: p.descripcion ?? "",
       estado: p.estado,
     });
+    setFieldErrors({});
     setEditId(p.id);
     setOpen(true);
   };
@@ -123,7 +152,21 @@ export default function Puesto() {
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
-  ) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  ) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (!(e.target instanceof HTMLSelectElement)) {
+      setFieldErrors((p) => ({
+        ...p,
+        [name]:
+          value && !ALLOWED_CHARS.test(value)
+            ? "No se permiten caracteres especiales"
+            : "",
+      }));
+    }
+  };
+
+  const hasErrors = Object.values(fieldErrors).some(Boolean);
 
   const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -174,41 +217,57 @@ export default function Puesto() {
   return (
     <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <div>
+        <div id="puesto-title">
           <h1 style={s.title}>Puestos</h1>
           <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
             Defina y gestione los puestos de trabajo disponibles en la
             organización.
           </p>
         </div>
-        <button
-          style={s.btnPrimary}
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-        >
-          + Nuevo
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button id="puesto-ayuda-btn" style={s.btnHelp} onClick={startTour}>
+            ¿Necesitas ayuda?
+          </button>
+          <button
+            id="puesto-nuevo-btn"
+            style={s.btnPrimary}
+            onClick={() => {
+              reset();
+              setOpen(true);
+            }}
+          >
+            + Nuevo
+          </button>
+        </div>
       </div>
-      <Stats data={stats} />
-      <Filters
-        search={search}
-        setSearch={setSearch}
-        filterValue={(activeFilters.descripcion as string) ?? ""}
-        setFilterValue={(val: string) => setFilter("descripcion", val)}
-        filterEstado={(activeFilters.estado as string) ?? ""}
-        setFilterEstado={(val: string) => setFilter("estado", val)}
-        placeholder="Buscar por nombre o descripción..."
-        options2={optionsEstado}
-        label1="Puesto"
-        label2="Descripción"
-      />
-      <div style={s.card}>
+      <div id="puesto-stats">
+        <Stats data={stats} />
+      </div>
+      <div id="puesto-filtros">
+        <Filters
+          search={search}
+          setSearch={handleSearch}
+          filterValue={(activeFilters.descripcion as string) ?? ""}
+          setFilterValue={(val: string) => handleFilter("descripcion", val)}
+          filterEstado={(activeFilters.estado as string) ?? ""}
+          setFilterEstado={(val: string) => handleFilter("estado", val)}
+          placeholder="Buscar por nombre o descripción..."
+          options2={optionsEstado}
+          label1="Puesto"
+          label2="Descripción"
+        />
+      </div>
+      <div id="puesto-tabla" style={s.card}>
         <DataTable
           columns={columns}
-          data={filteredData}
+          data={paginated}
           isLoading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredData.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setPage}
+          entityLabel="puestos"
         />
       </div>
 
@@ -264,7 +323,17 @@ export default function Puesto() {
                     onChange={change}
                     rows={field.rows ?? 3}
                     required={field.required}
-                    style={{ ...s.input, resize: "vertical" }}
+                    style={{
+                      ...s.input,
+                      resize: "vertical",
+                      ...(fieldErrors[field.name]
+                        ? {
+                            border: "1px solid #ef4444",
+                            outline: "2px solid #ef4444",
+                            outlineOffset: "0px",
+                          }
+                        : {}),
+                    }}
                   />
                 ) : (
                   <input
@@ -272,14 +341,47 @@ export default function Puesto() {
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
                     required={field.required}
-                    style={s.input}
+                    style={{
+                      ...s.input,
+                      ...(fieldErrors[field.name]
+                        ? {
+                            border: "1px solid #ef4444",
+                            outline: "2px solid #ef4444",
+                            outlineOffset: "0px",
+                          }
+                        : {}),
+                    }}
                   />
+                )}
+                {fieldErrors[field.name] && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "#ef4444",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {fieldErrors[field.name]}
+                  </span>
                 )}
               </label>
             ))}
           </div>
           <div style={s.row}>
-            <button type="submit" style={s.btnPrimary}>
+            <button
+              type="submit"
+              disabled={hasErrors}
+              style={{
+                ...s.btnPrimary,
+                ...(hasErrors
+                  ? {
+                      background: "#94a3b8",
+                      cursor: "not-allowed",
+                      opacity: 0.7,
+                    }
+                  : {}),
+              }}
+            >
               Guardar
             </button>
             <button type="button" style={s.btnSecondary} onClick={reset}>

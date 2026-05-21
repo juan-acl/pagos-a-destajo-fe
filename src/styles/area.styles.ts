@@ -95,4 +95,14 @@ export const s: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: "14px",
   },
+  btnHelp: {
+    background: "#fff",
+    color: "#2D6A4F",
+    border: "1.5px solid #2D6A4F",
+    borderRadius: "var(--radius-sm)",
+    padding: "8px 16px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
 };

@@ -96,4 +96,14 @@ export const s: Record<string, React.CSSProperties> = {
     padding: "2px 10px",
     fontSize: "12px",
   },
+  btnHelp: {
+    background: "#fff",
+    color: "#2D6A4F",
+    border: "1.5px solid #2D6A4F",
+    borderRadius: "6px",
+    padding: "8px 16px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
 };
