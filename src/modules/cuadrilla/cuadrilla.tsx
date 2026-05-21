@@ -1,20 +1,43 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
+import { getErrorMessage } from "@/utils/api";
 import Badge from "@/components/ui/badge";
 import Modal from "@/components/ui/Modal";
+import ToastContainer from "@/components/ui/Toastcontainer";
+import { useToast } from "@/hooks/useToast";
+import { useTour } from "@/hooks/useTour";
+import { useTooltip } from "@/hooks/useTooltip";
+import { validateCuadrilla, hasErrors, type Errors } from "@/utils/validators";
 
 type Area = { id: number; nombre: string; };
-type Cuadrilla = {
-  id: number;
-  nombre: string;
-  codigoCuadrilla?: string | null;
-  areaId?: number | null;
-  estado: string;
-};
+type Cuadrilla = { id: number; nombre: string; codigoCuadrilla?: string | null; areaId?: number | null; estado: string; };
 type CuadrillaForm = Omit<Cuadrilla, "id">;
 
 const empty: CuadrillaForm = { nombre: "", codigoCuadrilla: "", areaId: null, estado: "ACTIVO" };
+
+const TOUR_STEPS = [
+  { element: "#cua-header", title: "👥 Módulo de Cuadrillas", description: "Aquí gestionas los grupos de trabajo. Cada cuadrilla agrupa empleados que operan en un área productiva específica." },
+  { element: "#cua-nuevo-btn", title: "➕ Nueva Cuadrilla", description: "Crea una nueva cuadrilla asignándole un nombre, código único y el área productiva a la que pertenece." },
+  { element: "#cua-stats", title: "📊 Resumen operativo", description: "Ve de un vistazo cuántas cuadrillas existen, cuántas están activas y cuántas inactivas." },
+  { element: "#cua-filtros", title: "🔍 Filtros", description: "Busca cuadrillas por nombre o código, y filtra por estado activo o inactivo." },
+  { element: "#cua-tabla", title: "📄 Listado de cuadrillas", description: "Cada fila muestra una cuadrilla con su código, área asignada y estado." },
+];
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <span style={{ color: "#DC3545", fontSize: "11px", marginTop: "2px" }}>{msg}</span>;
+}
+
+function TipIcon({ element, title, description }: { element: string; title: string; description: string }) {
+  const { showTooltip } = useTooltip();
+  return (
+    <button type="button" onClick={() => showTooltip(element, title, description)}
+      className="text-gray-400 hover:text-[#2D6A4F] transition-colors bg-transparent border-0 cursor-pointer p-0 text-xs leading-none ml-1">
+      ⓘ
+    </button>
+  );
+}
 
 const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 const fetchAreas = () => api.get<{ data: Area[] }>("/area").then(r => r.data.data);
@@ -22,76 +45,110 @@ const fetchAreas = () => api.get<{ data: Area[] }>("/area").then(r => r.data.dat
 export default function CuadrillaModule() {
   const qc = useQueryClient();
   const [form, setForm] = useState<CuadrillaForm>(empty);
+  const [errors, setErrors] = useState<Errors>({});
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
+
+  const { toasts, show, remove } = useToast();
+  const { runIfFirst, tourDone } = useTour("cuadrillas", TOUR_STEPS);
+  useEffect(() => { runIfFirst(); }, []);
 
   const { data = [], isLoading } = useQuery({ queryKey: ["cuadrillas"], queryFn: fetchCuadrillas });
   const { data: areas = [] } = useQuery({ queryKey: ["areas"], queryFn: fetchAreas });
 
   const filtered = useMemo(() => data.filter(c => {
     const texto = `${c.nombre} ${c.codigoCuadrilla ?? ""}`.toLowerCase();
-    const matchSearch = !search || texto.includes(search.toLowerCase());
-    const matchEstado = !filterEstado || c.estado === filterEstado;
-    return matchSearch && matchEstado;
+    return (!search || texto.includes(search.toLowerCase())) && (!filterEstado || c.estado === filterEstado);
   }), [data, search, filterEstado]);
 
   const activas = data.filter(c => c.estado === "ACTIVO").length;
   const inactivas = data.filter(c => c.estado === "INACTIVO").length;
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); reset(); };
-  const create = useMutation({ mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d), onSuccess: invalidate });
-  const update = useMutation({ mutationFn: (d: CuadrillaForm) => api.put(`/cuadrillas/${editId}`, d), onSuccess: invalidate });
-  const remove = useMutation({ mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["cuadrillas"] }) });
+  const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
 
-  const reset = () => { setForm(empty); setEditId(null); setOpen(false); };
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); reset(); show("Cuadrilla guardada correctamente.", "success"); };
+
+  const create = useMutation({
+    mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d),
+    onSuccess: invalidate,
+    onError: (err) => show(getErrorMessage(err), "error"),
+  });
+
+  const update = useMutation({
+    mutationFn: (d: CuadrillaForm) => api.put(`/cuadrillas/${editId}`, d),
+    onSuccess: invalidate,
+    onError: (err) => show(getErrorMessage(err), "error"),
+  });
+
+  const remove2 = useMutation({
+    mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); show("Cuadrilla eliminada.", "success"); },
+    onError: (err) => show(getErrorMessage(err), "error"),
+  });
+
   const edit = (c: Cuadrilla) => {
     setForm({ nombre: c.nombre, codigoCuadrilla: c.codigoCuadrilla ?? "", areaId: c.areaId ?? null, estado: c.estado });
-    setEditId(c.id); setOpen(true);
+    setEditId(c.id); setErrors({}); setOpen(true);
   };
+
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(p => ({ ...p, [name]: name === "areaId" ? (value ? Number(value) : null) : value }));
+    if (errors[name]) setErrors(p => { const n = { ...p }; delete n[name]; return n; });
   };
-  const submit = (e: React.FormEvent) => { e.preventDefault(); editId ? update.mutate(form) : create.mutate(form); };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validateCuadrilla(form);
+    if (hasErrors(errs)) {
+      setErrors(errs);
+      show("Revisa los campos marcados en rojo antes de continuar.", "warning");
+      return;
+    }
+    editId ? update.mutate(form) : create.mutate(form);
+  };
+
   const getNombreArea = (id: number | null | undefined) => areas.find(a => a.id === id)?.nombre ?? null;
+
+  const inputCls = (field: string) =>
+    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal w-full ${errors[field] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
 
   return (
     <div className="max-w-7xl mx-auto">
+      <ToastContainer toasts={toasts} onRemove={remove} />
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+      <div id="cua-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 m-0">Cuadrillas</h1>
           <p className="text-sm text-gray-500 mt-1">Gestione los grupos de trabajo y supervise su estado operativo.</p>
         </div>
-        <button onClick={() => { reset(); setOpen(true); }} className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
+        <button id="cua-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
+          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
           + Nueva Cuadrilla
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div id="cua-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Total Cuadrillas", value: data.length, color: "text-gray-900" },
           { label: "Activas", value: activas, color: "text-[#2D6A4F]" },
           { label: "Inactivas", value: inactivas, color: "text-red-600" },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{stat.label}</p>
-            <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{s.label}</p>
+            <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
-        <input
-          placeholder="Buscar por nombre o código..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0"
-        />
+      <div id="cua-filtros" className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
+        <input placeholder="Buscar por nombre o código..." value={search} onChange={e => setSearch(e.target.value)}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
         <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
           <option value="ACTIVO">ACTIVO</option>
@@ -100,93 +157,101 @@ export default function CuadrillaModule() {
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <p className="text-center py-12 text-gray-400">Cargando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-gray-400">Sin resultados</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  {["Código", "Cuadrilla", "Área", "Estado", "Acciones"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c, i) => (
-                  <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-gray-500 font-semibold">{c.codigoCuadrilla ?? "-"}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                          {c.nombre.charAt(0).toUpperCase()}
-                        </div>
-                        <p className="font-semibold text-gray-900">{c.nombre}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getNombreArea(c.areaId)
-                        ? <Badge label={getNombreArea(c.areaId)!} color="amber" />
-                        : <span className="text-xs text-gray-400">Sin área</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge label={c.estado} color={c.estado === "ACTIVO" ? "green" : "gray"} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => edit(c)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Editar">✏️</button>
-                        <button onClick={() => remove.mutate(c.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Eliminar">🗑️</button>
-                      </div>
-                    </td>
+      <div id="cua-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {isLoading ? <p className="text-center py-12 text-gray-400">Cargando...</p>
+          : filtered.length === 0 ? <p className="text-center py-12 text-gray-400">Sin resultados</p>
+          : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    {["Código", "Cuadrilla", "Área", "Estado", "Acciones"].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {filtered.length > 0 && (
-          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-            Mostrando {filtered.length} de {data.length} cuadrillas
-          </p>
-        )}
+                </thead>
+                <tbody>
+                  {filtered.map((c, i) => (
+                    <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
+                      <td className="px-4 py-3"><span className="font-mono text-xs text-gray-500 font-semibold">{c.codigoCuadrilla ?? "-"}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                            {c.nombre.charAt(0).toUpperCase()}
+                          </div>
+                          <p className="font-semibold text-gray-900">{c.nombre}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{getNombreArea(c.areaId) ? <Badge label={getNombreArea(c.areaId)!} color="amber" /> : <span className="text-xs text-gray-400">Sin área</span>}</td>
+                      <td className="px-4 py-3"><Badge label={c.estado} color={c.estado === "ACTIVO" ? "green" : "gray"} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button onClick={() => edit(c)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">✏️</button>
+                          <button onClick={() => remove2.mutate(c.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        {filtered.length > 0 && <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">Mostrando {filtered.length} de {data.length} cuadrillas</p>}
       </div>
 
       {/* Modal */}
       <Modal open={open} title={editId ? "Editar Cuadrilla" : "Nueva Cuadrilla"} subtitle="Complete la información para registrar la cuadrilla." onClose={reset}>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Nombre *
-              <input name="nombre" placeholder="Ej. Cuadrilla Norte" value={form.nombre} onChange={change} required className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Código
-              <input name="codigoCuadrilla" placeholder="Ej. CUA-001" value={form.codigoCuadrilla ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Área
-              <select name="areaId" value={form.areaId ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
+
+            {/* Nombre */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+                Nombre *
+                {tourDone && <TipIcon element="#f-cua-nombre" title="Nombre" description="Nombre descriptivo único. Ej: Cuadrilla Norte. Máximo 80 caracteres." />}
+              </label>
+              <input id="f-cua-nombre" name="nombre" placeholder="Ej. Cuadrilla Norte" value={form.nombre} onChange={change} className={inputCls("nombre")} />
+              <FieldError msg={errors.nombre} />
+            </div>
+
+            {/* Código */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+                Código
+                {tourDone && <TipIcon element="#f-cua-codigo" title="Código" description="Identificador corto para reportes. Ej: CUA-001. Máximo 20 caracteres." />}
+              </label>
+              <input id="f-cua-codigo" name="codigoCuadrilla" placeholder="Ej. CUA-001" value={form.codigoCuadrilla ?? ""} onChange={change} className={inputCls("codigoCuadrilla")} />
+              <FieldError msg={errors.codigoCuadrilla} />
+            </div>
+
+            {/* Área */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+                Área
+                {tourDone && <TipIcon element="#f-cua-area" title="Área Productiva" description="Define en qué área opera esta cuadrilla. Afecta la agrupación en reportes." />}
+              </label>
+              <select id="f-cua-area" name="areaId" value={form.areaId ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white">
                 <option value="">Sin área</option>
                 {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Estado
-              <div className="flex gap-4 mt-1">
+            </div>
+
+            {/* Estado */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+                Estado
+                {tourDone && <TipIcon element="#f-cua-estado" title="Estado" description="ACTIVO: puede recibir órdenes. INACTIVO: suspendida pero con historial conservado." />}
+              </label>
+              <div id="f-cua-estado" className="flex gap-4 mt-1">
                 {["ACTIVO", "INACTIVO"].map(est => (
-                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm font-normal normal-case tracking-normal text-gray-700">
+                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
                     {est.charAt(0) + est.slice(1).toLowerCase()}
                   </label>
                 ))}
               </div>
-            </label>
+            </div>
+
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
