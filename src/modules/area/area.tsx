@@ -17,13 +17,24 @@ import Filters, { type Option } from "@/components/commons/filters";
 import { useFilter } from "@/hooks/useFilter";
 import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { AREA_TOUR_STEPS } from "./tour";
+
+const ALLOWED_CHARS = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]*$/;
+const ITEMS_PER_PAGE = 10;
 
 export default function Area() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [form, setForm] = useState<AreaForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+
+  const { startTour } = useTour(AREA_TOUR_STEPS, "area", empleado?.id);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["area"],
@@ -36,6 +47,22 @@ export default function Area() {
       filterableFields: ["nombre", "codigoArea", "estado"],
       exactMatchFields: ["estado"],
     });
+
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const paginated = useMemo(
+    () =>
+      filteredData.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE),
+    [filteredData, page],
+  );
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+  const handleFilter = (field: string, val: string) => {
+    setFilter(field, val);
+    setPage(1);
+  };
 
   const stats = useMemo(() => {
     return areaStats.map((stat) => {
@@ -105,6 +132,7 @@ export default function Area() {
     setEditId(null);
     setOpen(false);
     setErrorMessage(null);
+    setFieldErrors({});
   };
 
   const edit = (a: Area) => {
@@ -113,12 +141,28 @@ export default function Area() {
       codigoArea: a.codigoArea ?? "",
       estado: a.estado,
     });
+    setFieldErrors({});
     setEditId(a.id);
     setOpen(true);
   };
 
-  const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const change = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    setForm((p) => ({ ...p, [name]: value }));
+    if (!(e.target instanceof HTMLSelectElement)) {
+      setFieldErrors((p) => ({
+        ...p,
+        [name]:
+          value && !ALLOWED_CHARS.test(value)
+            ? "No se permiten caracteres especiales"
+            : "",
+      }));
+    }
+  };
+
+  const hasErrors = Object.values(fieldErrors).some(Boolean);
 
   const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -169,40 +213,56 @@ export default function Area() {
   return (
     <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <div>
+        <div id="area-title">
           <h1 style={s.title}>Áreas</h1>
           <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
             Organice y gestione las áreas de producción y su estado operativo.
           </p>
         </div>
-        <button
-          style={s.btnPrimary}
-          onClick={() => {
-            reset();
-            setOpen(true);
-          }}
-        >
-          + Nuevo
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button id="area-ayuda-btn" style={s.btnHelp} onClick={startTour}>
+            ¿Necesitas ayuda?
+          </button>
+          <button
+            id="area-nuevo-btn"
+            style={s.btnPrimary}
+            onClick={() => {
+              reset();
+              setOpen(true);
+            }}
+          >
+            + Nuevo
+          </button>
+        </div>
       </div>
-      <Stats data={stats} />
-      <Filters
-        search={search}
-        setSearch={setSearch}
-        filterValue={(activeFilters.codigoArea as string) ?? ""}
-        setFilterValue={(val: string) => setFilter("codigoArea", val)}
-        filterEstado={(activeFilters.estado as string) ?? ""}
-        setFilterEstado={(val: string) => setFilter("estado", val)}
-        options2={optionsEstado}
-        placeholder="Buscar por nombre o código..."
-        label1="Área"
-        label2="Estado"
-      />
-      <div style={s.card}>
+      <div id="area-stats">
+        <Stats data={stats} />
+      </div>
+      <div id="area-filtros">
+        <Filters
+          search={search}
+          setSearch={handleSearch}
+          filterValue={(activeFilters.codigoArea as string) ?? ""}
+          setFilterValue={(val: string) => handleFilter("codigoArea", val)}
+          filterEstado={(activeFilters.estado as string) ?? ""}
+          setFilterEstado={(val: string) => handleFilter("estado", val)}
+          options2={optionsEstado}
+          placeholder="Buscar por nombre o código..."
+          label1="Área"
+          label2="Estado"
+        />
+      </div>
+      <div id="area-tabla" style={s.card}>
         <DataTable
           columns={columns}
-          data={filteredData}
+          data={paginated}
           isLoading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredData.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setPage}
+          entityLabel="áreas"
         />
       </div>
       <Modal
@@ -251,14 +311,47 @@ export default function Area() {
                     onChange={change}
                     required={field.required}
                     maxLength={field.maxLength}
-                    style={s.input}
+                    style={{
+                      ...s.input,
+                      ...(fieldErrors[field.name]
+                        ? {
+                            border: "0.1px solid #ef4444",
+                            outline: "0.1px solid #ef4444",
+                            outlineOffset: "0px",
+                          }
+                        : {}),
+                    }}
                   />
+                )}
+                {fieldErrors[field.name] && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "#ef4444",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {fieldErrors[field.name]}
+                  </span>
                 )}
               </label>
             ))}
           </div>
           <div style={s.row}>
-            <button type="submit" style={s.btnPrimary}>
+            <button
+              type="submit"
+              disabled={hasErrors}
+              style={{
+                ...s.btnPrimary,
+                ...(hasErrors
+                  ? {
+                      background: "#94a3b8",
+                      cursor: "not-allowed",
+                      opacity: 0.7,
+                    }
+                  : {}),
+              }}
+            >
               Guardar
             </button>
             <button type="button" style={s.btnSecondary} onClick={reset}>

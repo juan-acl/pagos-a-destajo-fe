@@ -1,56 +1,37 @@
-import { useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { driver } from "driver.js";
+import type { DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 
-type Step = {
-  element: string;
-  title: string;
-  description: string;
-};
-
-const TOUR_KEY = (module: string) => `tour_${module}_done`;
-
-export function useTour(moduleKey: string, steps: Step[]) {
-  const [tourDone, setTourDone] = useState(
-    () => localStorage.getItem(TOUR_KEY(moduleKey)) === "done"
-  );
+export function useTour(
+  steps: DriveStep[],
+  tourKey: string,
+  userId?: number | null,
+) {
+  const storageKey =
+    userId != null ? `pad_tour_${tourKey}_v1_${userId}` : null;
 
   const startTour = useCallback(() => {
-    const d = driver({
+    const driverObj = driver({
       showProgress: true,
-      animate: true,
-      overlayColor: "rgba(0,0,0,0.5)",
-      stagePadding: 8,
-      stageRadius: 8,
       progressText: "{{current}} de {{total}}",
       nextBtnText: "Siguiente →",
       prevBtnText: "← Anterior",
       doneBtnText: "¡Entendido!",
-      onDestroyStarted: () => {
-        localStorage.setItem(TOUR_KEY(moduleKey), "done");
-        setTourDone(true); // <-- Esto dispara el re-render y muestra los ⓘ
-        d.destroy();
+      steps,
+      onDestroyed: () => {
+        if (storageKey) localStorage.setItem(storageKey, "1");
       },
-      steps: steps.map(s => ({
-        element: s.element,
-        popover: {
-          title: s.title,
-          description: s.description,
-          side: "bottom" as const,
-          align: "start" as const,
-        },
-      })),
     });
-    d.drive();
-  }, [moduleKey, steps]);
+    driverObj.drive();
+  }, [steps, storageKey]);
 
-  const runIfFirst = useCallback(() => {
-    if (localStorage.getItem(TOUR_KEY(moduleKey)) !== "done") {
-      setTimeout(() => startTour(), 500);
-    }
-  }, [moduleKey, startTour]);
+  useEffect(() => {
+    if (!storageKey) return;
+    if (localStorage.getItem(storageKey)) return;
+    const timer = setTimeout(startTour, 700);
+    return () => clearTimeout(timer);
+  }, [storageKey, startTour]);
 
-  const isDone = () => tourDone;
-
-  return { runIfFirst, startTour, isDone, tourDone };
+  return { startTour };
 }
