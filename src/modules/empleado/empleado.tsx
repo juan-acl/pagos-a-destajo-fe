@@ -8,6 +8,7 @@ import ToastContainer from "@/components/ui/Toastcontainer";
 import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
+import { useAuthStore } from "@/store/authStore";
 import { validateEmpleado, hasErrors, type Errors } from "@/utils/validators";
 
 const ITEMS_PER_PAGE = 10;
@@ -32,20 +33,18 @@ const empty: EmpleadoForm = {
 };
 
 const TOUR_STEPS = [
-  { element: "#emp-header", title: "📋 Módulo de Empleados", description: "Desde aquí gestionas toda la fuerza laboral: registros, roles y estado operativo de cada persona." },
-  { element: "#emp-nuevo-btn", title: "➕ Nuevo Empleado", description: "Haz clic aquí para registrar un nuevo empleado. Tendrás que llenar su información personal, correo y contraseña temporal." },
-  { element: "#emp-stats", title: "📊 Estadísticas rápidas", description: "Aquí ves de un vistazo cuántos empleados hay en total, cuántos están activos y cuántos inactivos." },
-  { element: "#emp-filtros", title: "🔍 Filtros de búsqueda", description: "Busca por nombre o código, filtra por puesto o por estado. Los filtros se combinan automáticamente." },
-  { element: "#emp-tabla", title: "📄 Lista de empleados", description: "Cada fila muestra un empleado. Usa ✏️ para editar o 🗑️ para eliminar." },
+  { element: "#emp-header", popover: { title: "📋 Módulo de Empleados", description: "Desde aquí gestionas toda la fuerza laboral: registros, roles y estado operativo de cada persona." } },
+  { element: "#emp-nuevo-btn", popover: { title: "➕ Nuevo Empleado", description: "Haz clic aquí para registrar un nuevo empleado. Tendrás que llenar su información personal, correo y contraseña temporal." } },
+  { element: "#emp-stats", popover: { title: "📊 Estadísticas rápidas", description: "Aquí ves de un vistazo cuántos empleados hay en total, cuántos están activos y cuántos inactivos." } },
+  { element: "#emp-filtros", popover: { title: "🔍 Filtros de búsqueda", description: "Busca por nombre o código, filtra por puesto o por estado. Los filtros se combinan automáticamente." } },
+  { element: "#emp-tabla", popover: { title: "📄 Lista de empleados", description: "Cada fila muestra un empleado. Usa ✏️ para editar o 🗑️ para eliminar." } },
 ];
 
-// Componente error de campo
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <span style={{ color: "#DC3545", fontSize: "11px", marginTop: "2px" }}>{msg}</span>;
 }
 
-// Componente tooltip
 function TipIcon({ element, title, description }: { element: string; title: string; description: string }) {
   const { showTooltip } = useTooltip();
   return (
@@ -61,6 +60,7 @@ const fetchPuestos = () => api.get<{ data: Puesto[] }>("/position-workers").then
 
 export default function EmpleadoModule() {
   const qc = useQueryClient();
+  const { empleado: authEmpleado } = useAuthStore();
   const [form, setForm] = useState<EmpleadoForm>(empty);
   const [errors, setErrors] = useState<Errors>({});
   const [editId, setEditId] = useState<number | null>(null);
@@ -68,12 +68,21 @@ export default function EmpleadoModule() {
   const [search, setSearch] = useState("");
   const [filterPuesto, setFilterPuesto] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const { toasts, show, remove } = useToast();
-  const { runIfFirst, tourDone } = useTour("empleados", TOUR_STEPS);
-  useEffect(() => { runIfFirst(); }, []);
+
+  // Tour con firma de develop
+  useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
+  const tourKey = authEmpleado?.id != null ? `pad_tour_empleados_v1_${authEmpleado.id}` : null;
+  const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
+  useEffect(() => {
+    if (!tourKey || tourDone) return;
+    const interval = setInterval(() => {
+      if (localStorage.getItem(tourKey) === "1") setTourDone(true);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [tourKey, tourDone]);
 
   const { data = [], isLoading } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
   const { data: puestos = [] } = useQuery({ queryKey: ["puestos"], queryFn: fetchPuestos });
@@ -94,7 +103,6 @@ export default function EmpleadoModule() {
   const activos = data.filter(e => e.estado === "ACTIVO").length;
   const inactivos = data.filter(e => e.estado === "INACTIVO").length;
 
-<<<<<<< HEAD
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
 
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); show("Empleado guardado correctamente.", "success"); };
@@ -118,68 +126,31 @@ export default function EmpleadoModule() {
   });
 
   const edit = (e: Empleado) => {
-    setForm({ ...e, password: "", segundoNombre: e.segundoNombre ?? "", segundoApellido: e.segundoApellido ?? "", codigoEmpleado: e.codigoEmpleado ?? "" });
-    setEditId(e.id); setErrors({}); setOpen(true);
-=======
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); };
-
-  const create = useMutation({
-    mutationFn: (d: EmpleadoForm) => api.post("/empleados", d),
-    onSuccess: invalidate,
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al guardar el empleado. Verifica que el correo no esté repetido y que todos los campos requeridos estén completos."),
-  });
-
-  const update = useMutation({
-    mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d),
-    onSuccess: invalidate,
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al actualizar el empleado."),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: number) => api.delete(`/empleados/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["empleados"] }),
-    onError: (e: any) => setError(e?.response?.data?.message ?? "Error al eliminar el empleado."),
-  });
-
-  const reset = () => { setForm(empty); setEditId(null); setOpen(false); setError(null); };
-
-  const edit = (e: Empleado) => {
     setForm({ ...e, password: "", segundoNombre: e.segundoNombre ?? "", segundoApellido: e.segundoApellido ?? "" });
-    setEditId(e.id); setOpen(true); setError(null);
->>>>>>> b4c33f7beaa5d5d187296e171d8b40216ced8a18
+    setEditId(e.id); setErrors({}); setOpen(true);
   };
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(p => ({ ...p, [name]: name === "pstPuesto" ? (value ? Number(value) : null) : value }));
-    // Limpiar error del campo al escribir
     if (errors[name]) setErrors(p => { const n = { ...p }; delete n[name]; return n; });
   };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-<<<<<<< HEAD
     const errs = validateEmpleado(form, !!editId);
     if (hasErrors(errs)) {
       setErrors(errs);
       show("Revisa los campos marcados en rojo antes de continuar.", "warning");
       return;
     }
-=======
-    setError(null);
-    if (!form.primerNombre.trim()) { setError("El primer nombre es obligatorio."); return; }
-    if (!form.primerApellido.trim()) { setError("El primer apellido es obligatorio."); return; }
-    if (!form.email.trim()) { setError("El correo electrónico es obligatorio."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError("El correo electrónico no tiene un formato válido."); return; }
-    if (!editId && !form.password.trim()) { setError("La contraseña temporal es obligatoria."); return; }
->>>>>>> b4c33f7beaa5d5d187296e171d8b40216ced8a18
     editId ? update.mutate(form) : create.mutate(form);
   };
 
   const getNombrePuesto = (id: number | null | undefined) => puestos.find(p => p.id === id)?.nombre ?? null;
 
   const inputCls = (field: string) =>
-    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal w-full ${errors[field] ? "border-red-400 bg-red-50 focus:border-red-500" : "border-gray-200 focus:border-[#2D6A4F]"}`;
+    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal w-full ${errors[field] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -211,31 +182,18 @@ export default function EmpleadoModule() {
         ))}
       </div>
 
-      {/* Error global */}
-      {error && !open && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
-        </div>
-      )}
-
       {/* Filtros */}
-<<<<<<< HEAD
       <div id="emp-filtros" className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
-        <input placeholder="Buscar por nombre o código..." value={search} onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
-        <select value={filterPuesto} onChange={e => setFilterPuesto(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
-=======
-      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
         <input placeholder="Buscar por nombre o código..." value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
-        <select value={filterPuesto} onChange={e => { setFilterPuesto(e.target.value); setPage(1); }} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
->>>>>>> b4c33f7beaa5d5d187296e171d8b40216ced8a18
+        <select value={filterPuesto} onChange={e => { setFilterPuesto(e.target.value); setPage(1); }}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Puesto: Todos</option>
           {puestos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
-        <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+        <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
           <option value="ACTIVO">ACTIVO</option>
           <option value="INACTIVO">INACTIVO</option>
@@ -243,7 +201,6 @@ export default function EmpleadoModule() {
       </div>
 
       {/* Tabla */}
-<<<<<<< HEAD
       <div id="emp-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {isLoading ? <p className="text-center py-12 text-gray-400">Cargando...</p>
           : filtered.length === 0 ? <p className="text-center py-12 text-gray-400">Sin resultados</p>
@@ -258,7 +215,7 @@ export default function EmpleadoModule() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((e, i) => (
+                  {paginated.map((e, i) => (
                     <tr key={e.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                       <td className="px-4 py-3"><span className="font-mono text-xs text-gray-500 font-semibold">{e.codigoEmpleado ?? "-"}</span></td>
                       <td className="px-4 py-3">
@@ -287,7 +244,29 @@ export default function EmpleadoModule() {
               </table>
             </div>
           )}
-        {filtered.length > 0 && <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">Mostrando {filtered.length} de {data.length} empleados</p>}
+
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              Mostrando {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} empleados
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">← Anterior</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} onClick={() => setPage(n)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
+                  {n}
+                </button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">Siguiente →</button>
+            </div>
+          </div>
+        )}
+        {totalPages <= 1 && filtered.length > 0 && (
+          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">Mostrando {filtered.length} de {data.length} empleados</p>
+        )}
       </div>
 
       {/* Modal */}
@@ -295,27 +274,14 @@ export default function EmpleadoModule() {
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            {/* Código */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+            {editId && (
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Código de Empleado
-                {tourDone && <TipIcon element="#f-codigo" title="Código de Empleado" description="Identificador único del empleado. Ej: EMP-2024-001. Máximo 20 caracteres." />}
+                <input value={data.find(e => e.id === editId)?.codigoEmpleado ?? ""} readOnly
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
               </label>
-              <input id="f-codigo" name="codigoEmpleado" placeholder="EMP-2024-" value={form.codigoEmpleado ?? ""} onChange={change} className={inputCls("codigoEmpleado")} />
-              <FieldError msg={errors.codigoEmpleado} />
-            </div>
+            )}
 
-            {/* Primer Apellido */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Primer Apellido *
-                {tourDone && <TipIcon element="#f-papellido" title="Primer Apellido" description="Apellido legal del empleado. Solo letras y espacios." />}
-              </label>
-              <input id="f-papellido" name="primerApellido" placeholder="Ej. García" value={form.primerApellido} onChange={change} className={inputCls("primerApellido")} />
-              <FieldError msg={errors.primerApellido} />
-            </div>
-
-            {/* Primer Nombre */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Primer Nombre *
@@ -325,21 +291,27 @@ export default function EmpleadoModule() {
               <FieldError msg={errors.primerNombre} />
             </div>
 
-            {/* Segundo Apellido */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Segundo Apellido</label>
-              <input name="segundoApellido" placeholder="Ej. Méndez" value={form.segundoApellido ?? ""} onChange={change} className={inputCls("segundoApellido")} />
-              <FieldError msg={errors.segundoApellido} />
-            </div>
-
-            {/* Segundo Nombre */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Segundo Nombre</label>
               <input name="segundoNombre" placeholder="Ej. Antonio" value={form.segundoNombre ?? ""} onChange={change} className={inputCls("segundoNombre")} />
               <FieldError msg={errors.segundoNombre} />
             </div>
 
-            {/* Email */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
+                Primer Apellido *
+                {tourDone && <TipIcon element="#f-papellido" title="Primer Apellido" description="Apellido legal del empleado. Solo letras y espacios." />}
+              </label>
+              <input id="f-papellido" name="primerApellido" placeholder="Ej. García" value={form.primerApellido} onChange={change} className={inputCls("primerApellido")} />
+              <FieldError msg={errors.primerApellido} />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Segundo Apellido</label>
+              <input name="segundoApellido" placeholder="Ej. Méndez" value={form.segundoApellido ?? ""} onChange={change} className={inputCls("segundoApellido")} />
+              <FieldError msg={errors.segundoApellido} />
+            </div>
+
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Correo Electrónico *
@@ -349,7 +321,6 @@ export default function EmpleadoModule() {
               <FieldError msg={errors.email} />
             </div>
 
-            {/* Contraseña */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 {editId ? "Nueva Contraseña (opcional)" : "Contraseña Temporal *"}
@@ -359,150 +330,18 @@ export default function EmpleadoModule() {
               <FieldError msg={errors.password} />
             </div>
 
-            {/* Puesto */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Puesto Asignado
                 {tourDone && <TipIcon element="#f-puesto" title="Puesto" description="Cargo del empleado. Define sus permisos de acceso al sistema." />}
               </label>
-              <select id="f-puesto" name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change} className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white">
-=======
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <p className="text-center py-12 text-gray-400">Cargando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-gray-400">Sin resultados</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  {["Código", "Empleado", "Puesto", "Email", "Estado", "Acciones"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((e, i) => (
-                  <tr key={e.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-gray-500 font-semibold">{e.codigoEmpleado ?? "-"}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                          {e.primerNombre[0]}{e.primerApellido[0]}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{e.primerNombre} {e.segundoNombre ?? ""} {e.primerApellido} {e.segundoApellido ?? ""}</p>
-                          <p className="text-xs text-gray-400">{e.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getNombrePuesto(e.pstPuesto)
-                        ? <Badge label={getNombrePuesto(e.pstPuesto)!} color="green" />
-                        : <span className="text-xs text-gray-400">Sin puesto</span>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-sm">{e.email}</td>
-                    <td className="px-4 py-3">
-                      <Badge label={e.estado} color={e.estado === "ACTIVO" ? "green" : "gray"} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => edit(e)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Editar">✏️</button>
-                        <button onClick={() => remove.mutate(e.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Eliminar">🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              Mostrando {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} empleados
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
-                ← Anterior
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button key={n} onClick={() => setPage(n)}
-                  className={`px-3 py-1.5 text-xs rounded-lg border cursor-pointer ${n === page ? "bg-[#2D6A4F] text-white border-[#2D6A4F]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}>
-                  {n}
-                </button>
-              ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 cursor-pointer hover:bg-gray-50">
-                Siguiente →
-              </button>
-            </div>
-          </div>
-        )}
-        {totalPages <= 1 && filtered.length > 0 && (
-          <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-            Mostrando {filtered.length} de {data.length} empleados
-          </p>
-        )}
-      </div>
-
-      {/* Modal */}
-      <Modal open={open} title={editId ? "Editar Empleado" : "Registro de Empleado"} subtitle="El código del empleado se genera automáticamente al guardar." onClose={reset}>
-        <form onSubmit={submit}>
-
-          {/* Error dentro del modal */}
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex justify-between items-center">
-              <span>{error}</span>
-              <button type="button" onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 border-0 bg-transparent cursor-pointer text-lg">×</button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {editId && (
-              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Código de Empleado
-                <input value={data.find(e => e.id === editId)?.codigoEmpleado ?? ""} readOnly
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
-              </label>
-            )}
-            {[
-              { name: "primerNombre", label: "Primer Nombre *", placeholder: "Ej. Roberto", required: true },
-              { name: "segundoNombre", label: "Segundo Nombre", placeholder: "Ej. Antonio", required: false },
-              { name: "primerApellido", label: "Primer Apellido *", placeholder: "Ej. García", required: true },
-              { name: "segundoApellido", label: "Segundo Apellido", placeholder: "Ej. Méndez", required: false },
-              { name: "email", label: "Correo Electrónico *", placeholder: "nombre@tpm-agri.com", required: true },
-            ].map(f => (
-              <label key={f.name} className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {f.label}
-                <input name={f.name} placeholder={f.placeholder} value={(form as any)[f.name] ?? ""} onChange={change}
-                  required={f.required} type={f.name === "email" ? "email" : "text"}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
-              </label>
-            ))}
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {editId ? "Nueva Contraseña (opcional)" : "Contraseña Temporal *"}
-              <input name="password" type="password" placeholder="••••••••" value={form.password} onChange={change}
-                required={!editId}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none font-normal normal-case tracking-normal" />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Puesto Asignado
-              <select name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white font-normal normal-case tracking-normal">
->>>>>>> b4c33f7beaa5d5d187296e171d8b40216ced8a18
+              <select id="f-puesto" name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white">
                 <option value="">Seleccione puesto...</option>
                 {puestos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
 
-            {/* Estado */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Estado Inicial
@@ -519,7 +358,6 @@ export default function EmpleadoModule() {
             </div>
 
           </div>
-
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={create.isPending || update.isPending}

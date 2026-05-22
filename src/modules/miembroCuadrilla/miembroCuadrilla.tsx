@@ -8,6 +8,7 @@ import ToastContainer from "@/components/ui/Toastcontainer";
 import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
+import { useAuthStore } from "@/store/authStore";
 import { validateMiembro, hasErrors, type Errors } from "@/utils/validators";
 
 type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; estado: string; };
@@ -23,12 +24,12 @@ type MiembroForm = { empleadoId: number; cuadrillaId: number; fechaIngreso: stri
 const empty: MiembroForm = { empleadoId: 0, cuadrillaId: 0, fechaIngreso: "", estado: "ACTIVO" };
 
 const TOUR_STEPS = [
-  { element: "#mic-header", title: "🔗 Miembros de Cuadrilla", description: "Aquí asignas empleados a cuadrillas. Un empleado puede pertenecer a varias cuadrillas." },
-  { element: "#mic-masivo-btn", title: "⚡ Asignación Masiva", description: "Asigna varios empleados a una cuadrilla de una sola vez." },
-  { element: "#mic-nuevo-btn", title: "➕ Nuevo Miembro", description: "Asigna un empleado individual a una cuadrilla específica." },
-  { element: "#mic-stats", title: "📊 Estadísticas", description: "Resumen de miembros activos, inactivos y número de cuadrillas." },
-  { element: "#mic-filtros", title: "🔍 Filtros", description: "Busca por nombre del empleado, filtra por cuadrilla o estado." },
-  { element: "#mic-tabla", title: "📄 Listado de miembros", description: "Cada fila muestra la relación empleado-cuadrilla con fecha de ingreso." },
+  { element: "#mic-header", popover: { title: "🔗 Miembros de Cuadrilla", description: "Aquí asignas empleados a cuadrillas. Un empleado puede pertenecer a varias cuadrillas." } },
+  { element: "#mic-masivo-btn", popover: { title: "⚡ Asignación Masiva", description: "Asigna varios empleados a una cuadrilla de una sola vez." } },
+  { element: "#mic-nuevo-btn", popover: { title: "➕ Nuevo Miembro", description: "Asigna un empleado individual a una cuadrilla específica." } },
+  { element: "#mic-stats", popover: { title: "📊 Estadísticas", description: "Resumen de miembros activos, inactivos y número de cuadrillas." } },
+  { element: "#mic-filtros", popover: { title: "🔍 Filtros", description: "Busca por nombre del empleado, filtra por cuadrilla o estado." } },
+  { element: "#mic-tabla", popover: { title: "📄 Listado de miembros", description: "Cada fila muestra la relación empleado-cuadrilla con fecha de ingreso." } },
 ];
 
 function FieldError({ msg }: { msg?: string }) {
@@ -52,6 +53,7 @@ const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then
 
 export default function MiembroCuadrillaModule() {
   const qc = useQueryClient();
+  const { empleado: authEmpleado } = useAuthStore();
   const [form, setForm] = useState<MiembroForm>(empty);
   const [errors, setErrors] = useState<Errors>({});
   const [editId, setEditId] = useState<number | null>(null);
@@ -70,8 +72,18 @@ export default function MiembroCuadrillaModule() {
   const [loadingMasivo, setLoadingMasivo] = useState(false);
 
   const { toasts, show, remove } = useToast();
-  const { runIfFirst, tourDone } = useTour("miembros-cuadrilla", TOUR_STEPS);
-  useEffect(() => { runIfFirst(); }, []);
+
+  // Tour con firma de develop
+  useTour(TOUR_STEPS, "miembros-cuadrilla", authEmpleado?.id);
+  const tourKey = authEmpleado?.id != null ? `pad_tour_miembros-cuadrilla_v1_${authEmpleado.id}` : null;
+  const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
+  useEffect(() => {
+    if (!tourKey || tourDone) return;
+    const interval = setInterval(() => {
+      if (localStorage.getItem(tourKey) === "1") setTourDone(true);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [tourKey, tourDone]);
 
   const { data = [], isLoading } = useQuery({ queryKey: ["miembros-cuadrilla"], queryFn: fetchMiembros });
   const { data: empleados = [] } = useQuery({ queryKey: ["empleados"], queryFn: fetchEmpleados });
@@ -158,7 +170,6 @@ export default function MiembroCuadrillaModule() {
     } else setErrorMasivoF("");
     if (!valid) return;
     if (empleadosSeleccionados.length === 0) { show("Debes seleccionar al menos un empleado.", "warning"); return; }
-
     setLoadingMasivo(true);
     try {
       await Promise.all(empleadosSeleccionados.map(empleadoId =>
@@ -290,11 +301,10 @@ export default function MiembroCuadrillaModule() {
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            {/* Empleado */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Empleado *
-                {tourDone && <TipIcon element="#f-mic-empleado" title="Empleado" description="Solo se muestran empleados ACTIVOS. Si no aparece alguien, verifica su estado en el módulo de Empleados." />}
+                {tourDone && <TipIcon element="#f-mic-empleado" title="Empleado" description="Solo se muestran empleados ACTIVOS." />}
               </label>
               <select id="f-mic-empleado" name="empleadoId" value={form.empleadoId || ""} onChange={change} className={selectCls("empleadoId")}>
                 <option value="">Seleccione empleado...</option>
@@ -305,11 +315,10 @@ export default function MiembroCuadrillaModule() {
               <FieldError msg={errors.empleadoId} />
             </div>
 
-            {/* Cuadrilla */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Cuadrilla *
-                {tourDone && <TipIcon element="#f-mic-cuadrilla" title="Cuadrilla" description="Grupo de trabajo al que se incorpora el empleado. Un empleado puede pertenecer a varias cuadrillas." />}
+                {tourDone && <TipIcon element="#f-mic-cuadrilla" title="Cuadrilla" description="Grupo de trabajo al que se incorpora el empleado." />}
               </label>
               <select id="f-mic-cuadrilla" name="cuadrillaId" value={form.cuadrillaId || ""} onChange={change} className={selectCls("cuadrillaId")}>
                 <option value="">Seleccione cuadrilla...</option>
@@ -318,11 +327,10 @@ export default function MiembroCuadrillaModule() {
               <FieldError msg={errors.cuadrillaId} />
             </div>
 
-            {/* Fecha */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Fecha de Ingreso
-                {tourDone && <TipIcon element="#f-mic-fecha" title="Fecha de Ingreso" description="No puede ser futura ni anterior al año 2000. Se usa en reportes de antigüedad." />}
+                {tourDone && <TipIcon element="#f-mic-fecha" title="Fecha de Ingreso" description="No puede ser futura ni anterior al año 2000." />}
               </label>
               <input id="f-mic-fecha" name="fechaIngreso" type="date" value={form.fechaIngreso}
                 min="2000-01-01" max={new Date().toISOString().split("T")[0]}
@@ -330,11 +338,10 @@ export default function MiembroCuadrillaModule() {
               <FieldError msg={errors.fechaIngreso} />
             </div>
 
-            {/* Estado */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Estado
-                {tourDone && <TipIcon element="#f-mic-estado" title="Estado" description="ACTIVO: el empleado opera en esta cuadrilla. INACTIVO: membresía suspendida pero historial conservado." />}
+                {tourDone && <TipIcon element="#f-mic-estado" title="Estado" description="ACTIVO: opera en esta cuadrilla. INACTIVO: membresía suspendida." />}
               </label>
               <div id="f-mic-estado" className="flex gap-4 mt-1">
                 {["ACTIVO", "INACTIVO"].map(est => (
@@ -349,7 +356,8 @@ export default function MiembroCuadrillaModule() {
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={create.isPending || update.isPending} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
+            <button type="submit" disabled={create.isPending || update.isPending}
+              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
               {editId ? "Actualizar" : "Guardar Miembro"}
             </button>
           </div>
@@ -360,14 +368,12 @@ export default function MiembroCuadrillaModule() {
       <Modal open={openMasivo} title="Asignación masiva" subtitle="Selecciona una cuadrilla y elige los empleados a asignar." onClose={resetMasivo} width={640}>
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Cuadrilla *
                 {tourDone && <TipIcon element="#f-mas-cuadrilla" title="Cuadrilla destino" description="Todos los empleados seleccionados serán asignados a esta cuadrilla." />}
               </label>
-              <select id="f-mas-cuadrilla"
-                value={cuadrillaSeleccionada || ""}
+              <select id="f-mas-cuadrilla" value={cuadrillaSeleccionada || ""}
                 onChange={e => { setCuadrillaSeleccionada(Number(e.target.value)); setEmpleadosSeleccionados([]); setErrorMasivoC(""); }}
                 className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full ${errorMasivoC ? "border-red-400 bg-red-50" : "border-gray-200"}`}>
                 <option value="">Seleccione cuadrilla...</option>
@@ -375,11 +381,10 @@ export default function MiembroCuadrillaModule() {
               </select>
               <FieldError msg={errorMasivoC} />
             </div>
-
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Fecha de ingreso
-                {tourDone && <TipIcon element="#f-mas-fecha" title="Fecha masiva" description="Se aplicará la misma fecha a todos los empleados seleccionados. No puede ser futura." />}
+                {tourDone && <TipIcon element="#f-mas-fecha" title="Fecha masiva" description="Se aplicará la misma fecha a todos los empleados seleccionados." />}
               </label>
               <input id="f-mas-fecha" type="date" value={fechaMasiva}
                 min="2000-01-01" max={new Date().toISOString().split("T")[0]}
@@ -387,7 +392,6 @@ export default function MiembroCuadrillaModule() {
                 className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full ${errorMasivoF ? "border-red-400 bg-red-50" : "border-gray-200"}`} />
               <FieldError msg={errorMasivoF} />
             </div>
-
           </div>
 
           {cuadrillaSeleccionada > 0 && (
