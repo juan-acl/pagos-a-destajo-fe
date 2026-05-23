@@ -10,6 +10,9 @@ import {
 } from "@/api/planilla.api";
 import type { OrdenTrabajo, RegistroDiario } from "@/types/planilla.types";
 import { getErrorMessage } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { REGISTRO_TOUR_STEPS } from "./tour";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -38,6 +41,8 @@ const fetchOrdenesPorDias = () =>
 
 export default function RegistroDiarioPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
+  const { startTour } = useTour(REGISTRO_TOUR_STEPS, "registro-diario", empleado?.id);
 
   const [selectedOrdenId, setSelectedOrdenId] = useState<number | null>(null);
   const [fechaInicio, setFechaInicio] = useState(today);
@@ -112,13 +117,16 @@ export default function RegistroDiarioPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <div>
+        <div id="registro-title">
           <h1 style={s.title}>Gestión de Días</h1>
           <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
             Registre y administre los días laborales de las órdenes con
             modalidad Pago por Día.
           </p>
         </div>
+        <button id="registro-ayuda-btn" style={s.btnHelp} onClick={startTour}>
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       {errorMsg && (
@@ -151,7 +159,7 @@ export default function RegistroDiarioPage() {
             alignItems: "end",
           }}
         >
-          <label style={s.label}>
+          <label id="registro-orden" style={s.label}>
             Orden de trabajo (Pago por día)
             <select
               value={selectedOrdenId ?? ""}
@@ -177,7 +185,7 @@ export default function RegistroDiarioPage() {
             </select>
           </label>
 
-          <label style={s.label}>
+          <label id="registro-fechas" style={s.label}>
             Fecha inicio
             <input
               type="date"
@@ -200,6 +208,7 @@ export default function RegistroDiarioPage() {
           </label>
 
           <button
+            id="registro-registrar-btn"
             style={{
               ...s.btnPrimary,
               opacity: canRegistrar ? 1 : 0.5,
