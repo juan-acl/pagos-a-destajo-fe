@@ -417,7 +417,7 @@ export default function Planilla() {
         />
       </div>
 
-      <div id="planilla-tabla" style={s.card}>
+      <div id="planilla-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
         <DataTable
           columns={columns}
           data={paginated}

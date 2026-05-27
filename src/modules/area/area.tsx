@@ -252,7 +252,7 @@ export default function Area() {
           label2="Estado"
         />
       </div>
-      <div id="area-tabla" style={s.card}>
+      <div id="area-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
         <DataTable
           columns={columns}
           data={paginated}

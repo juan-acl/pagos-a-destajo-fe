@@ -257,7 +257,7 @@ export default function Puesto() {
           label2="Descripción"
         />
       </div>
-      <div id="puesto-tabla" style={s.card}>
+      <div id="puesto-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
         <DataTable
           columns={columns}
           data={paginated}
