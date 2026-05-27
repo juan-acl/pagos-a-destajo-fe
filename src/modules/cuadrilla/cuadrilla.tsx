@@ -65,7 +65,7 @@ export default function CuadrillaModule() {
   const { toasts, show, remove } = useToast();
 
   // Tour con firma de develop
-  useTour(TOUR_STEPS, "cuadrillas", authEmpleado?.id);
+  const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_cuadrillas_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
   useEffect(() => {
@@ -147,16 +147,22 @@ export default function CuadrillaModule() {
       <ToastContainer toasts={toasts} onRemove={remove} />
 
       {/* Header */}
-      <div id="cua-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Cuadrillas</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestione los grupos de trabajo y supervise su estado operativo.</p>
-        </div>
-        <button id="cua-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
-          className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
-          + Nueva Cuadrilla
-        </button>
-      </div>
+<div id="cua-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+  <div>
+    <h1 className="text-2xl font-bold text-gray-900 m-0">Cuadrillas</h1>
+    <p className="text-sm text-gray-500 mt-1">Gestione los grupos de trabajo y supervise su estado operativo.</p>
+  </div>
+  <div className="flex gap-3">
+    <button onClick={startTour}
+      className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer">
+      ¿Necesitas ayuda?
+    </button>
+    <button id="cua-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
+      className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
+      + Nueva Cuadrilla
+    </button>
+  </div>
+</div>
 
       {/* Stats */}
       <div id="cua-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

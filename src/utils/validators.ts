@@ -1,7 +1,10 @@
 // Validadores reutilizables para todos los módulos
 
 const SOLO_LETRAS = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/;
+const CODIGO_REGEX = /^[a-zA-Z0-9\-_]+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NOMBRE_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ0-9\s\-_.]+$/;
+
 const HOY = new Date();
 HOY.setHours(0, 0, 0, 0);
 const MIN_FECHA = new Date("2000-01-01");
@@ -29,24 +32,36 @@ export function validateEmpleado(form: EmpleadoFormData, isEdit: boolean): Error
     e.primerNombre = "El primer nombre es obligatorio.";
   else if (form.primerNombre.trim().length < 2)
     e.primerNombre = "Mínimo 2 caracteres.";
+  else if (form.primerNombre.trim().length > 50)
+    e.primerNombre = "El nombre no puede superar 50 caracteres.";
   else if (!SOLO_LETRAS.test(form.primerNombre.trim()))
     e.primerNombre = "Solo se permiten letras y espacios.";
 
   // Segundo nombre (opcional)
-  if (form.segundoNombre?.trim() && !SOLO_LETRAS.test(form.segundoNombre.trim()))
-    e.segundoNombre = "Solo se permiten letras y espacios.";
+  if (form.segundoNombre?.trim()) {
+    if (form.segundoNombre.trim().length > 50)
+      e.segundoNombre = "El nombre no puede superar 50 caracteres.";
+    else if (!SOLO_LETRAS.test(form.segundoNombre.trim()))
+      e.segundoNombre = "Solo se permiten letras y espacios.";
+  }
 
   // Primer apellido
   if (!form.primerApellido.trim())
     e.primerApellido = "El primer apellido es obligatorio.";
   else if (form.primerApellido.trim().length < 2)
     e.primerApellido = "Mínimo 2 caracteres.";
+  else if (form.primerApellido.trim().length > 50)
+    e.primerApellido = "El apellido no puede superar 50 caracteres.";
   else if (!SOLO_LETRAS.test(form.primerApellido.trim()))
     e.primerApellido = "Solo se permiten letras y espacios.";
 
   // Segundo apellido (opcional)
-  if (form.segundoApellido?.trim() && !SOLO_LETRAS.test(form.segundoApellido.trim()))
-    e.segundoApellido = "Solo se permiten letras y espacios.";
+  if (form.segundoApellido?.trim()) {
+    if (form.segundoApellido.trim().length > 50)
+      e.segundoApellido = "El apellido no puede superar 50 caracteres.";
+    else if (!SOLO_LETRAS.test(form.segundoApellido.trim()))
+      e.segundoApellido = "Solo se permiten letras y espacios.";
+  }
 
   // Email
   if (!form.email.trim())
@@ -65,8 +80,12 @@ export function validateEmpleado(form: EmpleadoFormData, isEdit: boolean): Error
   }
 
   // Código (opcional)
-  if (form.codigoEmpleado && form.codigoEmpleado.trim().length > 20)
-    e.codigoEmpleado = "El código no puede superar 20 caracteres.";
+  if (form.codigoEmpleado?.trim()) {
+    if (form.codigoEmpleado.trim().length > 20)
+      e.codigoEmpleado = "El código no puede superar 20 caracteres.";
+    else if (!CODIGO_REGEX.test(form.codigoEmpleado.trim()))
+      e.codigoEmpleado = "El código solo puede tener letras, números y guiones.";
+  }
 
   return e;
 }
@@ -88,9 +107,15 @@ export function validateCuadrilla(form: CuadrillaFormData): Errors {
     e.nombre = "Mínimo 2 caracteres.";
   else if (form.nombre.trim().length > 80)
     e.nombre = "El nombre no puede superar 80 caracteres.";
+  else if (!NOMBRE_REGEX.test(form.nombre.trim()))
+    e.nombre = "Solo se permiten letras, números, espacios, guiones y puntos.";
 
-  if (form.codigoCuadrilla && form.codigoCuadrilla.trim().length > 20)
-    e.codigoCuadrilla = "El código no puede superar 20 caracteres.";
+  if (form.codigoCuadrilla?.trim()) {
+    if (form.codigoCuadrilla.trim().length > 20)
+      e.codigoCuadrilla = "El código no puede superar 20 caracteres.";
+    else if (!CODIGO_REGEX.test(form.codigoCuadrilla.trim()))
+      e.codigoCuadrilla = "El código solo puede tener letras, números y guiones.";
+  }
 
   return e;
 }

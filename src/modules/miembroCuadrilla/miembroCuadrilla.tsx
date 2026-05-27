@@ -74,7 +74,7 @@ export default function MiembroCuadrillaModule() {
   const { toasts, show, remove } = useToast();
 
   // Tour con firma de develop
-  useTour(TOUR_STEPS, "miembros-cuadrilla", authEmpleado?.id);
+  const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_miembros-cuadrilla_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
   useEffect(() => {
@@ -207,6 +207,12 @@ export default function MiembroCuadrillaModule() {
           <p className="text-sm text-gray-500 mt-1">Gestione la asignación de empleados a cuadrillas de trabajo.</p>
         </div>
         <div className="flex gap-3">
+            <button
+            onClick={startTour}
+            className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            ¿Necesitas ayuda?
+          </button>
           <button id="mic-masivo-btn" onClick={() => setOpenMasivo(true)}
             className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer">
             Asignación masiva
