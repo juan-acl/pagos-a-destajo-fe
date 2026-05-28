@@ -5,6 +5,9 @@ import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { PRODUCTION_REVIEW_TOUR_STEPS } from "./tour";
 
 type PendingReport = {
   id: number;
@@ -72,11 +75,18 @@ const badgeColor = (estado: string) => {
 
 export default function ProductionReviewPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [cantidadAprobada, setCantidadAprobada] = useState<number | "">("");
   const [observaciones, setObservaciones] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [reviewsPage, setReviewsPage] = useState(1);
+
+  const { startTour } = useTour(
+    PRODUCTION_REVIEW_TOUR_STEPS,
+    "production-review",
+    empleado?.id,
+  );
 
   const { data: pending = [], isLoading: loadingPending } = useQuery({
     queryKey: ["production-review-pending"],
@@ -166,16 +176,26 @@ export default function ProductionReviewPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="production-review-title">
+          <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
+          </p>
+        </div>
+        <button
+          id="production-review-ayuda-btn"
+          type="button"
+          onClick={startTour}
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       <Toast message={message} type="error" onClose={() => setMessage(null)} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div id="production-review-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Reportes pendientes", value: pending.length, color: "text-amber-600" },
           { label: "Revisadas", value: reviews.filter((item) => normalize(item.estadoRevision) !== "PENDIENTE_REVISION").length, color: "text-blue-600" },
@@ -190,7 +210,7 @@ export default function ProductionReviewPage() {
       </div>
 
       <div className="grid lg:grid-cols-[380px,1fr] gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div id="production-review-selector" className="bg-white rounded-xl border border-gray-200 p-5">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Reporte pendiente</label>
           <select
             value={selectedId}
@@ -223,7 +243,7 @@ export default function ProductionReviewPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div id="production-review-form" className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="grid md:grid-cols-2 gap-4">
             <label className="block text-sm font-medium text-gray-700">
               Cantidad recibida/reportada
@@ -283,7 +303,7 @@ export default function ProductionReviewPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="production-review-history" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Historial de reportes y revisiones</h2>
           <p className="text-sm text-gray-500">Los reportes pendientes nacen desde el panel del operario y aquí se aprueban u observan.</p>

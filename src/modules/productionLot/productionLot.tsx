@@ -5,6 +5,9 @@ import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { PRODUCTION_LOT_TOUR_STEPS } from "./tour";
 
 type LotCandidate = {
   id: number;
@@ -79,10 +82,17 @@ const paginate = <T,>(items: T[], page: number) => {
 
 export default function ProductionLotPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [selectedCandidateId, setSelectedCandidateId] = useState<number | "">("");
   const [message, setMessage] = useState<string | null>(null);
   const [candidatesPage, setCandidatesPage] = useState(1);
   const [lotsPage, setLotsPage] = useState(1);
+
+  const { startTour } = useTour(
+    PRODUCTION_LOT_TOUR_STEPS,
+    "production-lot",
+    empleado?.id,
+  );
 
   const { data: candidates = [], isLoading: loadingCandidates } = useQuery({
     queryKey: ["production-lot-candidates"],
@@ -132,16 +142,26 @@ export default function ProductionLotPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="production-lot-title">
+          <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
+          </p>
+        </div>
+        <button
+          id="production-lot-ayuda-btn"
+          type="button"
+          onClick={startTour}
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       <Toast message={message} type="error" onClose={() => setMessage(null)} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div id="production-lot-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Paneles evaluados", value: candidates.length, color: "text-gray-900" },
           { label: "Listos para lote", value: candidates.filter((item) => item.canGenerate).length, color: "text-[#2D6A4F]" },
@@ -156,7 +176,7 @@ export default function ProductionLotPage() {
       </div>
 
       <div className="grid lg:grid-cols-[380px,1fr] gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div id="production-lot-selector" className="bg-white rounded-xl border border-gray-200 p-5">
           <label className="block text-sm font-semibold text-gray-700 mb-2">Orden y cuadrilla</label>
           <select
             value={selectedCandidateId}
@@ -230,7 +250,7 @@ export default function ProductionLotPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div id="production-lot-candidates-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900">Estado de cada panel</h2>
             <p className="text-sm text-gray-500">Solo los paneles DESTAJO con producción aprobada y sin reportes pendientes pueden generar lote.</p>
@@ -276,7 +296,7 @@ export default function ProductionLotPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="production-lot-lots-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Lotes generados</h2>
           <p className="text-sm text-gray-500">Historial de lotes creados desde revisiones aprobadas.</p>
