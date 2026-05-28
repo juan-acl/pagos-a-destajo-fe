@@ -445,7 +445,24 @@ export default function Planilla() {
               value={selectedOrden?.id ?? 0}
               onChange={(e) => {
                 const id = Number(e.target.value);
-                setSelectedOrden(ordenes.find((o) => o.id === id) ?? null);
+                const orden = ordenes.find((o) => o.id === id) ?? null;
+                setSelectedOrden(orden);
+                if (orden && isPagoPorDias(orden.modalidad)) {
+                  const minDate = orden.fechaCreacion.split("T")[0];
+                  const maxDate = orden.fechaLimite
+                    ? orden.fechaLimite.split("T")[0]
+                    : undefined;
+                  const newInicio =
+                    today >= minDate && (!maxDate || today <= maxDate)
+                      ? today
+                      : minDate;
+                  const newFin = maxDate ?? today;
+                  setFechaInicio(newInicio);
+                  setFechaFin(newFin >= newInicio ? newFin : newInicio);
+                } else {
+                  setFechaInicio(today);
+                  setFechaFin(today);
+                }
               }}
               required
               style={s.input}
@@ -497,6 +514,7 @@ export default function Planilla() {
                 <input
                   type="date"
                   value={fechaInicio}
+                  min={selectedOrden?.fechaCreacion?.split("T")[0]}
                   max={fechaFin}
                   onChange={(e) => setFechaInicio(e.target.value)}
                   style={s.input}
@@ -509,6 +527,11 @@ export default function Planilla() {
                   type="date"
                   value={fechaFin}
                   min={fechaInicio}
+                  max={
+                    selectedOrden?.fechaLimite
+                      ? selectedOrden.fechaLimite.split("T")[0]
+                      : undefined
+                  }
                   onChange={(e) => setFechaFin(e.target.value)}
                   style={s.input}
                   required
