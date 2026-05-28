@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
@@ -9,6 +9,7 @@ import { fetchPuestos } from "@/api/puesto.api";
 import Modal from "@/components/ui/Modal";
 import Stats from "@/components/commons/stats";
 import { useFilter } from "@/hooks/useFilter";
+import { useTooltip } from "@/hooks/useTooltip";
 import Filters, { type Option } from "@/components/commons/filters";
 import {
   puestoFormFields,
@@ -24,6 +25,55 @@ import { PUESTO_TOUR_STEPS } from "./tour";
 const ALLOWED_CHARS = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]*$/;
 const ITEMS_PER_PAGE = 10;
 
+const PUESTO_TOOLTIPS: Record<string, { title: string; description: string }> =
+  {
+    nombre: {
+      title: "Nombre del Puesto",
+      description:
+        "Nombre del rol tal como aparece en las asignaciones de empleados. Debe reflejar la funcion real dentro del proceso productivo.",
+    },
+    descripcion: {
+      title: "Descripcion del Puesto",
+      description:
+        "Detalle de las responsabilidades del puesto. Permite distinguir roles con nombre similar y orienta al responsable que realiza las asignaciones.",
+    },
+    estado: {
+      title: "Estado del Puesto",
+      description:
+        "ACTIVO permite asignar empleados a este puesto. INACTIVO lo suspende pero conserva todas las asignaciones historicas registradas.",
+    },
+  };
+
+function TipIcon({
+  element,
+  title,
+  description,
+}: {
+  element: string;
+  title: string;
+  description: string;
+}) {
+  const { showTooltip } = useTooltip();
+  return (
+    <button
+      type="button"
+      onClick={() => showTooltip(element, title, description)}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "0",
+        color: "#94a3b8",
+        fontSize: "13px",
+        lineHeight: "1",
+        marginLeft: "4px",
+      }}
+    >
+      ⓘ
+    </button>
+  );
+}
+
 export default function Puesto() {
   const qc = useQueryClient();
   const { empleado } = useAuthStore();
@@ -35,6 +85,19 @@ export default function Puesto() {
   const [page, setPage] = useState(1);
 
   const { startTour } = useTour(PUESTO_TOUR_STEPS, "puesto", empleado?.id);
+
+  const puestoStorageKey =
+    empleado?.id != null ? `pad_tour_puesto_v1_${empleado.id}` : null;
+  const [tourDone, setTourDone] = useState(() =>
+    puestoStorageKey ? localStorage.getItem(puestoStorageKey) === "1" : false,
+  );
+  useEffect(() => {
+    if (!puestoStorageKey || tourDone) return;
+    const interval = setInterval(() => {
+      if (localStorage.getItem(puestoStorageKey) === "1") setTourDone(true);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [puestoStorageKey, tourDone]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["position-workers"],
@@ -257,7 +320,7 @@ export default function Puesto() {
           label2="Descripción"
         />
       </div>
-      <div id="puesto-tabla" style={s.card}>
+      <div id="puesto-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
         <DataTable
           columns={columns}
           data={paginated}
@@ -302,9 +365,19 @@ export default function Puesto() {
                   ...(field.fullWidth && { gridColumn: "1 / -1" }),
                 }}
               >
-                {field.label} {field.required && "*"}
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  {field.label} {field.required && "*"}
+                  {tourDone && PUESTO_TOOLTIPS[field.name] && (
+                    <TipIcon
+                      element={`#f-puesto-${field.name}`}
+                      title={PUESTO_TOOLTIPS[field.name].title}
+                      description={PUESTO_TOOLTIPS[field.name].description}
+                    />
+                  )}
+                </span>
                 {field.type === "select" ? (
                   <select
+                    id={`f-puesto-${field.name}`}
                     name={field.name}
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
@@ -318,6 +391,7 @@ export default function Puesto() {
                   </select>
                 ) : field.type === "textarea" ? (
                   <textarea
+                    id={`f-puesto-${field.name}`}
                     name={field.name}
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
@@ -337,6 +411,7 @@ export default function Puesto() {
                   />
                 ) : (
                   <input
+                    id={`f-puesto-${field.name}`}
                     name={field.name}
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}

@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { driver } from "driver.js";
 import type { DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
+import { useAuthStore } from "@/store/authStore";
 
 export function useTour(
   steps: DriveStep[],

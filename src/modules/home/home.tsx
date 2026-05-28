@@ -17,7 +17,7 @@ const fetchEmpleados = () => api.get<{ data: Empleado[] }>("/empleados").then(r 
 const fetchCuadrillas = () => api.get<{ data: Cuadrilla[] }>("/cuadrillas").then(r => r.data.data);
 const fetchLotes = () => api.get<{ data: Lote[] }>("/production-lot").then(r => r.data.data);
 const fetchAsignaciones = () => api.get<{ data: Asignacion[] }>("/employee-assignment").then(r => r.data.data);
-const fetchPlanillas = () => api.get<{ data: Planilla[] }>("/planilla").then(r => r.data.data);
+const fetchPlanillas = () => api.get<{ data: Planilla[] }>("/planilla", { params: { limit: 10 } }).then(r => r.data.data);
 
 const links = [
   { label: "Empleados", to: "/empleados", icon: "👤", desc: "Gestiona la fuerza laboral" },
