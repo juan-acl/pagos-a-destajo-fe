@@ -149,7 +149,6 @@ export default function MiembroCuadrillaModule() {
     const errs = validateMiembro(form);
     if (hasErrors(errs)) {
       setErrors(errs);
-      show("Revisa los campos marcados en rojo antes de continuar.", "warning");
       return;
     }
     editId ? update.mutate(form) : create.mutate(form);
