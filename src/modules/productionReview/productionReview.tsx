@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
@@ -73,6 +73,32 @@ const badgeColor = (estado: string) => {
   return "gray";
 };
 
+const INTEGER_CONTROL_KEYS = new Set([
+  "Backspace",
+  "Delete",
+  "Tab",
+  "Escape",
+  "Enter",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+]);
+
+const sanitizeIntegerInput = (value: string) => value.replace(/\D/g, "");
+
+const preventNonIntegerKey = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.ctrlKey || event.metaKey || event.altKey || INTEGER_CONTROL_KEYS.has(event.key)) return;
+  if (!/^\d$/.test(event.key)) event.preventDefault();
+};
+
+const preventInvalidIntegerPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+  const pastedText = event.clipboardData.getData("text");
+  if (!/^\d+$/.test(pastedText)) event.preventDefault();
+};
+
 export default function ProductionReviewPage() {
   const qc = useQueryClient();
   const { empleado } = useAuthStore();
@@ -108,7 +134,7 @@ export default function ProductionReviewPage() {
     [reviews, reviewsPage],
   );
 
-  const cantidadRecibida = Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0);
+  const cantidadRecibida = Math.trunc(Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0));
 
   const porcentajeRechazo = useMemo(() => {
     if (!cantidadRecibida || cantidadRecibida <= 0) return 0;
@@ -248,20 +274,29 @@ export default function ProductionReviewPage() {
             <label className="block text-sm font-medium text-gray-700">
               Cantidad recibida/reportada
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={selectedReport ? cantidadRecibida : ""}
                 readOnly
+                onKeyDown={preventNonIntegerKey}
+                onPaste={preventInvalidIntegerPaste}
                 className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50"
               />
             </label>
             <label className="block text-sm font-medium text-gray-700">
               Cantidad aprobada
               <input
-                type="number"
-                min={0}
-                max={cantidadRecibida || undefined}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={cantidadAprobada}
-                onChange={(e) => setCantidadAprobada(e.target.value === "" ? "" : Number(e.target.value))}
+                onKeyDown={preventNonIntegerKey}
+                onPaste={preventInvalidIntegerPaste}
+                onChange={(e) => {
+                  const sanitizedValue = sanitizeIntegerInput(e.target.value);
+                  setCantidadAprobada(sanitizedValue === "" ? "" : Number(sanitizedValue));
+                }}
                 className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
               />
             </label>
