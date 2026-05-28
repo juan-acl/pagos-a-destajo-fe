@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import type { Modalidad, DetalleEmpleadoDia } from "@/types/planilla.types";
@@ -28,6 +28,7 @@ import Filters, { type Option } from "@/components/commons/filters";
 import { planillaStats } from "@/constants/planilla.constants";
 import { useFilter } from "@/hooks/useFilter";
 import { useAuthStore } from "@/store/authStore";
+import { useTooltip } from "@/hooks/useTooltip";
 import { getErrorMessage } from "@/utils/api";
 import { BarChart, CircleCheckBig, CircleX } from "lucide-react";
 import { useTour } from "@/hooks/useTour";
@@ -35,6 +36,36 @@ import { PLANILLA_TOUR_STEPS } from "./tour";
 
 const today = new Date().toISOString().split("T")[0];
 const ITEMS_PER_PAGE = 10;
+
+function TipIcon({
+  element,
+  title,
+  description,
+}: {
+  element: string;
+  title: string;
+  description: string;
+}) {
+  const { showTooltip } = useTooltip();
+  return (
+    <button
+      type="button"
+      onClick={() => showTooltip(element, title, description)}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "0",
+        color: "#94a3b8",
+        fontSize: "13px",
+        lineHeight: "1",
+        marginLeft: "4px",
+      }}
+    >
+      ⓘ
+    </button>
+  );
+}
 
 function normalizeModalidad(m?: Modalidad | string | null) {
   const value = String(m ?? "DESTAJO")
@@ -113,6 +144,21 @@ export default function Planilla() {
   const [page, setPage] = useState(1);
 
   const { startTour } = useTour(PLANILLA_TOUR_STEPS, "planilla", empleado?.id);
+
+  const planillaStorageKey =
+    empleado?.id != null ? `pad_tour_planilla_v1_${empleado.id}` : null;
+  const [tourDone, setTourDone] = useState(() =>
+    planillaStorageKey
+      ? localStorage.getItem(planillaStorageKey) === "1"
+      : false,
+  );
+  useEffect(() => {
+    if (!planillaStorageKey || tourDone) return;
+    const interval = setInterval(() => {
+      if (localStorage.getItem(planillaStorageKey) === "1") setTourDone(true);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [planillaStorageKey, tourDone]);
 
   const responsableLogueado = useMemo(() => {
     const nombreCompleto = [
@@ -440,8 +486,18 @@ export default function Planilla() {
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
         <div style={s.grid}>
           <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-            Orden de trabajo *
+            <span style={{ display: "flex", alignItems: "center" }}>
+              Orden de trabajo *
+              {tourDone && (
+                <TipIcon
+                  element="#f-plan-orden"
+                  title="Orden de Trabajo"
+                  description="Solo aparecen ordenes con cuadrilla activa asignada. Al seleccionar una orden de modalidad Por Dia, se habilita el rango de fechas para filtrar que dias incluir en la planilla."
+                />
+              )}
+            </span>
             <select
+              id="f-plan-orden"
               value={selectedOrden?.id ?? 0}
               onChange={(e) => {
                 const id = Number(e.target.value);
@@ -510,8 +566,18 @@ export default function Planilla() {
           {isPagoPorDias(selectedOrden?.modalidad) && (
             <>
               <label style={s.label}>
-                Fecha inicio *
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  Fecha inicio *
+                  {tourDone && (
+                    <TipIcon
+                      element="#f-plan-fecha-inicio"
+                      title="Fecha Inicio del Rango"
+                      description="Primer dia que se incluira en la planilla. Solo se consideran los registros diarios marcados como Habilitado para pago dentro de este rango."
+                    />
+                  )}
+                </span>
                 <input
+                  id="f-plan-fecha-inicio"
                   type="date"
                   value={fechaInicio}
                   min={selectedOrden?.fechaCreacion?.split("T")[0]}
@@ -522,8 +588,18 @@ export default function Planilla() {
                 />
               </label>
               <label style={s.label}>
-                Fecha fin *
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  Fecha fin *
+                  {tourDone && (
+                    <TipIcon
+                      element="#f-plan-fecha-fin"
+                      title="Fecha Fin del Rango"
+                      description="Ultimo dia del rango. Los registros fuera de este rango quedan excluidos y podran incluirse en una planilla futura."
+                    />
+                  )}
+                </span>
                 <input
+                  id="f-plan-fecha-fin"
                   type="date"
                   value={fechaFin}
                   min={fechaInicio}
@@ -742,8 +818,18 @@ export default function Planilla() {
         >
           <div style={s.grid}>
             <label style={s.label}>
-              Método de pago *
+              <span style={{ display: "flex", alignItems: "center" }}>
+                Método de pago *
+                {tourDone && (
+                  <TipIcon
+                    element="#f-plan-metodo"
+                    title="Metodo de Pago"
+                    description="Define el medio con el que se efectuara el pago. Segun la opcion elegida se solicitaran datos distintos: responsable y fecha para efectivo, datos bancarios para transferencia, o numero y banco para cheque."
+                  />
+                )}
+              </span>
               <select
+                id="f-plan-metodo"
                 name="metodoPago"
                 value={evidencia.metodoPago}
                 onChange={changeEvidencia}
@@ -757,8 +843,18 @@ export default function Planilla() {
             </label>
 
             <label style={s.label}>
-              Monto confirmado *
+              <span style={{ display: "flex", alignItems: "center" }}>
+                Monto confirmado *
+                {tourDone && (
+                  <TipIcon
+                    element="#f-plan-monto"
+                    title="Monto Confirmado"
+                    description="Calculado automaticamente a partir de los registros incluidos en la planilla. No puede modificarse manualmente para garantizar la integridad del pago."
+                  />
+                )}
+              </span>
               <input
+                id="f-plan-monto"
                 name="montoConfirmado"
                 type="number"
                 step="0.01"

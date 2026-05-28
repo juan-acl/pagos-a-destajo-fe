@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import api from "@/api";
 import Modal from "@/components/ui/Modal";
 import { s } from "@/styles/planilla.styles";
@@ -38,6 +39,224 @@ const fetchOrdenesPorDias = () =>
   api
     .get<{ data: OrdenTrabajo[] }>("/ordenes-trabajo")
     .then((r) => r.data.data.filter((o) => o.modalidad === "PAGO_POR_DIAS"));
+
+function OrderCombobox({
+  ordenes,
+  ordenesLoading,
+  selectedOrdenId,
+  onChange,
+}: {
+  ordenes: OrdenTrabajo[];
+  ordenesLoading: boolean;
+  selectedOrdenId: number | null;
+  onChange: (orden: OrdenTrabajo | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedOrden = ordenes.find((o) => o.id === selectedOrdenId) ?? null;
+
+  const filtered = ordenes.filter((o) => {
+    const q = query.toLowerCase();
+    return (
+      o.numeroOrden.toLowerCase().includes(q) ||
+      o.estado.toLowerCase().includes(q)
+    );
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const select = (o: OrdenTrabajo | null) => {
+    onChange(o);
+    setOpen(false);
+    setQuery("");
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          ...s.input,
+          width: "100%",
+          textAlign: "left",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          color: selectedOrden ? "#1e293b" : "#94a3b8",
+          background: "#fff",
+          boxSizing: "border-box",
+        }}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {selectedOrden
+            ? `#${selectedOrden.numeroOrden} — Q ${Number(selectedOrden.pagoUnitario).toFixed(2)}/día (${selectedOrden.estado})`
+            : "Seleccionar orden..."}
+        </span>
+        <ChevronDown
+          size={14}
+          style={{ flexShrink: 0, marginLeft: 6, color: "#94a3b8" }}
+        />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            zIndex: 50,
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "8px 8px 4px" }}>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setOpen(false);
+                  setQuery("");
+                }
+              }}
+              placeholder="Buscar por número de orden..."
+              style={{ ...s.input, width: "100%", boxSizing: "border-box" }}
+            />
+          </div>
+          <ul
+            style={{
+              maxHeight: "220px",
+              overflowY: "auto",
+              margin: 0,
+              padding: "4px 0 6px",
+              listStyle: "none",
+            }}
+          >
+            {selectedOrden && (
+              <li
+                onClick={() => select(null)}
+                style={{
+                  padding: "7px 12px",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  color: "#94a3b8",
+                  borderLeft: "2px solid transparent",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLLIElement).style.background =
+                    "#f8fafc")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLLIElement).style.background =
+                    "transparent")
+                }
+              >
+                Limpiar selección
+              </li>
+            )}
+            {ordenesLoading ? (
+              <li
+                style={{
+                  padding: "10px 12px",
+                  fontSize: "13px",
+                  color: "#94a3b8",
+                }}
+              >
+                Cargando...
+              </li>
+            ) : filtered.length === 0 ? (
+              <li
+                style={{
+                  padding: "10px 12px",
+                  fontSize: "13px",
+                  color: "#94a3b8",
+                }}
+              >
+                Sin resultados
+              </li>
+            ) : (
+              filtered.map((o) => {
+                const isSelected = o.id === selectedOrdenId;
+                return (
+                  <li
+                    key={o.id}
+                    onClick={() => select(o)}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      background: isSelected ? "#f0fdf4" : "transparent",
+                      color: isSelected ? "#166534" : "#1e293b",
+                      borderLeft: isSelected
+                        ? "2px solid #2D6A4F"
+                        : "2px solid transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected)
+                        (e.currentTarget as HTMLLIElement).style.background =
+                          "#f8fafc";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected)
+                        (e.currentTarget as HTMLLIElement).style.background =
+                          "transparent";
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>#{o.numeroOrden}</span>
+                    {" — Q "}
+                    {Number(o.pagoUnitario).toFixed(2)}/día
+                    <span
+                      style={{
+                        marginLeft: "8px",
+                        fontSize: "11px",
+                        color: isSelected ? "#166534" : "#64748b",
+                      }}
+                    >
+                      ({o.estado})
+                    </span>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function RegistroDiarioPage() {
   const qc = useQueryClient();
@@ -108,6 +327,25 @@ export default function RegistroDiarioPage() {
     onError: (e) => setErrorMsg(getErrorMessage(e)),
   });
 
+  const handleOrdenChange = (orden: OrdenTrabajo | null) => {
+    setSelectedOrdenId(orden?.id ?? null);
+    setErrorMsg(null);
+    if (orden) {
+      const minDate = orden.fechaCreacion.split("T")[0];
+      const maxDate = orden.fechaLimite
+        ? orden.fechaLimite.split("T")[0]
+        : undefined;
+      const newInicio =
+        today >= minDate && (!maxDate || today <= maxDate) ? today : minDate;
+      const newFin = maxDate ?? today;
+      setFechaInicio(newInicio);
+      setFechaFin(newFin >= newInicio ? newFin : newInicio);
+    } else {
+      setFechaInicio(today);
+      setFechaFin(today);
+    }
+  };
+
   const canRegistrar =
     selectedOrdenId !== null &&
     !!fechaInicio &&
@@ -161,46 +399,12 @@ export default function RegistroDiarioPage() {
         >
           <label id="registro-orden" style={s.label}>
             Orden de trabajo (Pago por día)
-            <select
-              value={selectedOrdenId ?? ""}
-              onChange={(e) => {
-                const newId = e.target.value ? Number(e.target.value) : null;
-                setSelectedOrdenId(newId);
-                setErrorMsg(null);
-                if (newId) {
-                  const orden = ordenes.find((o) => o.id === newId);
-                  if (orden) {
-                    const minDate = orden.fechaCreacion.split("T")[0];
-                    const maxDate = orden.fechaLimite
-                      ? orden.fechaLimite.split("T")[0]
-                      : undefined;
-                    const newInicio =
-                      today >= minDate && (!maxDate || today <= maxDate)
-                        ? today
-                        : minDate;
-                    const newFin = maxDate ?? today;
-                    setFechaInicio(newInicio);
-                    setFechaFin(newFin >= newInicio ? newFin : newInicio);
-                  }
-                } else {
-                  setFechaInicio(today);
-                  setFechaFin(today);
-                }
-              }}
-              style={s.input}
-            >
-              <option value="">Seleccionar orden...</option>
-              {ordenesLoading ? (
-                <option disabled>Cargando...</option>
-              ) : (
-                ordenes.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    #{o.numeroOrden} — Q {Number(o.pagoUnitario).toFixed(2)}/día{" "}
-                    ({o.estado})
-                  </option>
-                ))
-              )}
-            </select>
+            <OrderCombobox
+              ordenes={ordenes}
+              ordenesLoading={ordenesLoading}
+              selectedOrdenId={selectedOrdenId}
+              onChange={handleOrdenChange}
+            />
           </label>
 
           <label id="registro-fechas" style={s.label}>

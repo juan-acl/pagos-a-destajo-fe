@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
 import api from "@/api";
@@ -15,6 +15,7 @@ import {
 } from "@/constants/area.constants";
 import Filters, { type Option } from "@/components/commons/filters";
 import { useFilter } from "@/hooks/useFilter";
+import { useTooltip } from "@/hooks/useTooltip";
 import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/utils/api";
 import { useTour } from "@/hooks/useTour";
@@ -23,6 +24,54 @@ import { AREA_TOUR_STEPS } from "./tour";
 
 const ALLOWED_CHARS = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s]*$/;
 const ITEMS_PER_PAGE = 10;
+
+const AREA_TOOLTIPS: Record<string, { title: string; description: string }> = {
+  nombre: {
+    title: "Nombre del Area",
+    description:
+      "Nombre descriptivo del area de produccion. Aparece en reportes, cuadrillas y ordenes de trabajo. Conviene ser consistente con los nombres ya registrados.",
+  },
+  codigoArea: {
+    title: "Codigo de Area",
+    description:
+      "Codigo corto de hasta 6 caracteres que identifica el area en listas y filtros. Ejemplo: CORTE, COST, EMPA.",
+  },
+  estado: {
+    title: "Estado del Area",
+    description:
+      "ACTIVO habilita el area para recibir cuadrillas y ordenes de trabajo. INACTIVO la suspende sin eliminar el historial de asignaciones previas.",
+  },
+};
+
+function TipIcon({
+  element,
+  title,
+  description,
+}: {
+  element: string;
+  title: string;
+  description: string;
+}) {
+  const { showTooltip } = useTooltip();
+  return (
+    <button
+      type="button"
+      onClick={() => showTooltip(element, title, description)}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "0",
+        color: "#94a3b8",
+        fontSize: "13px",
+        lineHeight: "1",
+        marginLeft: "4px",
+      }}
+    >
+      ⓘ
+    </button>
+  );
+}
 
 export default function Area() {
   const qc = useQueryClient();
@@ -35,6 +84,19 @@ export default function Area() {
   const [page, setPage] = useState(1);
 
   const { startTour } = useTour(AREA_TOUR_STEPS, "area", empleado?.id);
+
+  const areaStorageKey =
+    empleado?.id != null ? `pad_tour_area_v1_${empleado.id}` : null;
+  const [tourDone, setTourDone] = useState(() =>
+    areaStorageKey ? localStorage.getItem(areaStorageKey) === "1" : false,
+  );
+  useEffect(() => {
+    if (!areaStorageKey || tourDone) return;
+    const interval = setInterval(() => {
+      if (localStorage.getItem(areaStorageKey) === "1") setTourDone(true);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [areaStorageKey, tourDone]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["area"],
@@ -290,9 +352,19 @@ export default function Area() {
           <div style={s.grid}>
             {areaFormFields.map((field: FormField) => (
               <label key={field.name} style={s.label}>
-                {field.label} {field.required && "*"}
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  {field.label} {field.required && "*"}
+                  {tourDone && AREA_TOOLTIPS[field.name] && (
+                    <TipIcon
+                      element={`#f-area-${field.name}`}
+                      title={AREA_TOOLTIPS[field.name].title}
+                      description={AREA_TOOLTIPS[field.name].description}
+                    />
+                  )}
+                </span>
                 {field.type === "select" ? (
                   <select
+                    id={`f-area-${field.name}`}
                     name={field.name}
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
@@ -306,6 +378,7 @@ export default function Area() {
                   </select>
                 ) : (
                   <input
+                    id={`f-area-${field.name}`}
                     name={field.name}
                     value={(form as Record<string, string>)[field.name] ?? ""}
                     onChange={change}
