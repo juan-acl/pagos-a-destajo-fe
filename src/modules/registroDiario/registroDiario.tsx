@@ -164,10 +164,28 @@ export default function RegistroDiarioPage() {
             <select
               value={selectedOrdenId ?? ""}
               onChange={(e) => {
-                setSelectedOrdenId(
-                  e.target.value ? Number(e.target.value) : null,
-                );
+                const newId = e.target.value ? Number(e.target.value) : null;
+                setSelectedOrdenId(newId);
                 setErrorMsg(null);
+                if (newId) {
+                  const orden = ordenes.find((o) => o.id === newId);
+                  if (orden) {
+                    const minDate = orden.fechaCreacion.split("T")[0];
+                    const maxDate = orden.fechaLimite
+                      ? orden.fechaLimite.split("T")[0]
+                      : undefined;
+                    const newInicio =
+                      today >= minDate && (!maxDate || today <= maxDate)
+                        ? today
+                        : minDate;
+                    const newFin = maxDate ?? today;
+                    setFechaInicio(newInicio);
+                    setFechaFin(newFin >= newInicio ? newFin : newInicio);
+                  }
+                } else {
+                  setFechaInicio(today);
+                  setFechaFin(today);
+                }
               }}
               style={s.input}
             >
@@ -190,6 +208,7 @@ export default function RegistroDiarioPage() {
             <input
               type="date"
               value={fechaInicio}
+              min={selectedOrden?.fechaCreacion?.split("T")[0]}
               max={fechaFin}
               onChange={(e) => setFechaInicio(e.target.value)}
               style={s.input}
@@ -202,6 +221,11 @@ export default function RegistroDiarioPage() {
               type="date"
               value={fechaFin}
               min={fechaInicio}
+              max={
+                selectedOrden?.fechaLimite
+                  ? selectedOrden.fechaLimite.split("T")[0]
+                  : undefined
+              }
               onChange={(e) => setFechaFin(e.target.value)}
               style={s.input}
             />
