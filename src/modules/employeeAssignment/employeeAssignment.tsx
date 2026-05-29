@@ -4,6 +4,7 @@ import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
 import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/store/authStore";
@@ -226,7 +227,18 @@ export default function EmployeeAssignmentPage() {
 
       <div className="grid lg:grid-cols-[360px,1fr] gap-6 mb-6">
         <div id="employee-assignment-selector" className="bg-white rounded-xl border border-gray-200 p-5">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Orden y cuadrilla</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <span className="inline-flex items-center gap-1">
+              Orden y cuadrilla
+              <DriveTooltip
+                id="ea-tooltip-orden-cuadrilla"
+                title="Orden y cuadrilla"
+                description="Selecciona la orden asignada a una cuadrilla. La modalidad de pago ya viene definida desde la orden de trabajo."
+                side="right"
+                align="start"
+              />
+            </span>
+          </label>
           <select
             value={selectedPanelId}
             onChange={(e) => {
@@ -248,7 +260,16 @@ export default function EmployeeAssignmentPage() {
           {selectedPanel && (
             <div className="mt-5 space-y-3 text-sm text-gray-700">
               <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-1">
-                <p className="font-semibold text-gray-900 mb-1">Resumen del panel</p>
+                <p className="font-semibold text-gray-900 mb-1 inline-flex items-center gap-1">
+                  Resumen del panel
+                  <DriveTooltip
+                    id="ea-tooltip-resumen-panel"
+                    title="Resumen del panel"
+                    description="Muestra la orden, cuadrilla, estado, cantidad asignada y cuántos empleados ya están sincronizados para este flujo."
+                    side="right"
+                    align="start"
+                  />
+                </p>
                 <p>Orden: <strong>{selectedPanel.orden?.numeroOrden ?? "-"}</strong></p>
                 <p>Cuadrilla: <strong>{selectedPanel.cuadrilla?.nombre ?? "-"}</strong></p>
                 <p>Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong></p>
@@ -261,7 +282,16 @@ export default function EmployeeAssignmentPage() {
               </div>
 
               <div className="rounded-lg border border-gray-100 p-4 space-y-2">
-                <p className="font-semibold text-gray-900">Flujo aplicado</p>
+                <p className="font-semibold text-gray-900 inline-flex items-center gap-1">
+                  Flujo aplicado
+                  <DriveTooltip
+                    id="ea-tooltip-flujo-aplicado"
+                    title="Flujo aplicado"
+                    description="Indica si la orden seguirá el flujo de destajo o de pago por día. En pago por día, este módulo no registra días; solo sincroniza empleados."
+                    side="right"
+                    align="start"
+                  />
+                </p>
                 {normalize(selectedPanel.modalidad) === "PAGO_POR_DIAS" ? (
                   <p className="text-amber-700">
                     Esta orden se paga por día. Este módulo solo sincroniza empleados; el registro de días se mantiene en Gestión de Días.
@@ -293,7 +323,16 @@ export default function EmployeeAssignmentPage() {
 
         <div id="employee-assignment-members-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">Miembros de la cuadrilla</h2>
+            <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+              Miembros de la cuadrilla
+              <DriveTooltip
+                id="ea-tooltip-miembros-cuadrilla"
+                title="Miembros de la cuadrilla"
+                description="Lista los empleados activos de la cuadrilla seleccionada. Aquí no se asignan metas individuales; solo se verifica si ya están sincronizados."
+                side="bottom"
+                align="start"
+              />
+            </h2>
             <p className="text-sm text-gray-500">Se muestran sin metas individuales; la modalidad viene desde la orden.</p>
           </div>
 
@@ -345,7 +384,16 @@ export default function EmployeeAssignmentPage() {
       <div id="employee-assignment-registered-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Asignaciones registradas</h2>
+            <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+              Asignaciones registradas
+              <DriveTooltip
+                id="ea-tooltip-asignaciones-registradas"
+                title="Asignaciones registradas"
+                description="Consulta la relación entre empleado, orden, cuadrilla y modalidad. Usa el buscador para encontrar registros específicos."
+                side="bottom"
+                align="start"
+              />
+            </h2>
             <p className="text-sm text-gray-500">Relación empleado, orden, cuadrilla y modalidad definida desde la orden.</p>
           </div>
           <input
