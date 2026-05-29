@@ -6,14 +6,16 @@ export type Toast = {
   id: number;
   message: string;
   type: ToastType;
+  showIcon?: boolean;
 };
 
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const show = useCallback((message: string, type: ToastType = "error") => {
+  const show = useCallback((message: string, type: ToastType = "error", showIcon = true) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => [...prev, { id, message, type, showIcon }]);
+    
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4500);

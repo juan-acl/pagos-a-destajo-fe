@@ -141,14 +141,11 @@ export default function Medidas() {
       {/* Stats */}
       <div id="medidas-stats" className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {[
-          { label: "Total Medidas", value: data.length, color: "text-gray-900", icon: "📏" },
-          { label: "Registradas", value: data.length, color: "text-[#2D6A4F]", icon: "✅" },
+          { label: "Total Medidas", value: data.length, color: "text-gray-900" },
+          { label: "Registradas", value: data.length, color: "text-[#2D6A4F]" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{s.icon}</span>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{s.label}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{s.label}</p>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -182,10 +179,7 @@ export default function Medidas() {
                   {paginated.map((m, i) => (
                     <tr key={m.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Ruler size={14} color="#2D6A4F" />
-                          <span className="font-medium text-gray-900">{m.nombre}</span>
-                        </div>
+                        <span className="font-medium text-gray-900">{m.nombre}</span>
                       </td>
                       <td className="px-4 py-3"><Badge label={m.iniciales} color="blue" /></td>
                       <td className="px-4 py-3">
@@ -232,7 +226,7 @@ export default function Medidas() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "✏️ Editar Medida" : "📏 Nueva Medida"} subtitle="Complete la información de la unidad de medida." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Medida" : "Nueva Medida"} subtitle="Complete la información de la unidad de medida." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">

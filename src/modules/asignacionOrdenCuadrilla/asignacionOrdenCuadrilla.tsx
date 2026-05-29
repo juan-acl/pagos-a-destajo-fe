@@ -90,7 +90,7 @@ export default function AsignacionOrdenCuadrilla() {
   const inactivas = data.filter(a => a.estado === "inactivo").length;
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["asignaciones-orden-cuadrilla"] }); reset(); show("Asignación guardada correctamente.", "success"); };
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["asignaciones-orden-cuadrilla"] }); reset(); show("Asignación guardada correctamente.", "success", false); };
 
   const create = useMutation({
     mutationFn: (d: AsignacionForm) => api.post("/asignaciones-orden-cuadrilla", d),
@@ -168,13 +168,12 @@ export default function AsignacionOrdenCuadrilla() {
       {/* Stats */}
       <div id="asignacion-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
-          { label: "Total Asignaciones", value: data.length, color: "text-gray-900", icon: "🔗" },
-          { label: "Activas", value: activas, color: "text-[#2D6A4F]", icon: "✅" },
-          { label: "Inactivas", value: inactivas, color: "text-red-600", icon: "⛔" },
+          { label: "Total Asignaciones", value: data.length, color: "text-gray-900" },
+          { label: "Activas", value: activas, color: "text-[#2D6A4F]" },
+          { label: "Inactivas", value: inactivas, color: "text-red-600" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{s.icon}</span>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{s.label}</p>
             </div>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -193,8 +192,8 @@ export default function AsignacionOrdenCuadrilla() {
         <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
-          <option value="activo">✅ ACTIVO</option>
-          <option value="inactivo">⛔ INACTIVO</option>
+          <option value="activo">ACTIVO</option>
+          <option value="inactivo">INACTIVO</option>
         </select>
       </div>
 
@@ -216,22 +215,13 @@ export default function AsignacionOrdenCuadrilla() {
                   {paginated.map((a, i) => (
                     <tr key={a.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <GitMerge size={13} color="#2D6A4F" />
-                          <span className="font-mono text-xs font-semibold text-gray-500">Orden - {getOrdenNumero(a.ordenTrabajoId)}</span>
-                        </div>
+                        <span className="font-mono text-xs font-semibold text-gray-500">Orden - {getOrdenNumero(a.ordenTrabajoId)}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Users size={13} color="#6b7280" />
-                          <span className="font-medium text-gray-900">{getCuadrillaName(a.cuadrillaId)}</span>
-                        </div>
+                        <span className="font-medium text-gray-900">{getCuadrillaName(a.cuadrillaId)}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Hash size={13} color="#6b7280" />
-                          <span className="font-medium text-gray-900">{a.cantidadAsignada}</span>
-                        </div>
+                        <span className="font-medium text-gray-900">{a.cantidadAsignada}</span>
                       </td>
                       <td className="px-4 py-3"><Badge label={a.estado.toUpperCase()} color={a.estado === "activo" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
@@ -278,7 +268,7 @@ export default function AsignacionOrdenCuadrilla() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "✏️ Editar Asignación" : "🔗 Nueva Asignación"} subtitle="Asigne una orden de trabajo a una cuadrilla de producción." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Asignación" : "Nueva Asignación"} subtitle="Asigne una orden de trabajo a una cuadrilla de producción." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
@@ -287,7 +277,7 @@ export default function AsignacionOrdenCuadrilla() {
                 {tourDone && <TipIcon element="#f-aso-orden" title="Orden de Trabajo" description="Selecciona la orden que será asignada a la cuadrilla. La cantidad asignada se tomará automáticamente de la orden." />}
               </label>
               <select id="f-aso-orden" name="ordenTrabajoId" value={form.ordenTrabajoId} onChange={change} className={selectCls("ordenTrabajoId")}>
-                <option value={0}>📋 Seleccionar orden</option>
+                <option value={0}>Seleccionar orden</option>
                 {ordenes.map(o => <option key={o.id} value={o.id}>Orden - {o.numeroOrden}</option>)}
               </select>
               <FieldError msg={errors.ordenTrabajoId} />
@@ -298,7 +288,7 @@ export default function AsignacionOrdenCuadrilla() {
                 {tourDone && <TipIcon element="#f-aso-cuadrilla" title="Cuadrilla" description="Grupo de trabajo que se encargará de ejecutar esta orden de producción." />}
               </label>
               <select id="f-aso-cuadrilla" name="cuadrillaId" value={form.cuadrillaId} onChange={change} className={selectCls("cuadrillaId")}>
-                <option value={0}>👥 Seleccionar cuadrilla</option>
+                <option value={0}>Seleccionar cuadrilla</option>
                 {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
               <FieldError msg={errors.cuadrillaId} />
@@ -320,7 +310,7 @@ export default function AsignacionOrdenCuadrilla() {
                 {["activo", "inactivo"].map(est => (
                   <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
-                    {est === "activo" ? "✅ Activo" : "⛔ Inactivo"}
+                    {est === "activo" ? "Activo" : "Inactivo"}
                   </label>
                 ))}
               </div>

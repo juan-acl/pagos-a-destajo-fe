@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useAuthStore } from "@/store/authStore";
+import { Pencil, Trash2 } from "lucide-react";
 import { validateEmpleado, hasErrors, type Errors } from "@/utils/validators";
 
 const ITEMS_PER_PAGE = 10;
@@ -72,8 +73,7 @@ export default function EmpleadoModule() {
 
   const { toasts, show, remove } = useToast();
 
-  // Tour con firma de develop
- const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
+  const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_empleados_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
   useEffect(() => {
@@ -105,23 +105,39 @@ export default function EmpleadoModule() {
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); show("Empleado guardado correctamente.", "success"); };
+  // CORRECCIÓN: Ahora invalidate maneja de manera segura el string dinámico
+  const invalidate = (msg: string) => { 
+    qc.invalidateQueries({ queryKey: ["empleados"] }); 
+    reset(); 
+    show(msg, "success", false); 
+  };
 
   const create = useMutation({
     mutationFn: (d: EmpleadoForm) => api.post("/empleados", d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Empleado creado correctamente.");
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
-  const update = useMutation({
-    mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d),
-    onSuccess: invalidate,
-    onError: (err) => show(getErrorMessage(err), "error"),
-  });
+const update = useMutation({
+  mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d),
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ["empleados"] });
+    reset();
+    show("Empleado actualizado correctamente.", "success");
+  },
+  onError: (err) => {
+    show(getErrorMessage(err), "error"); 
+  },
+});
 
   const remove2 = useMutation({
     mutationFn: (id: number) => api.delete(`/empleados/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["empleados"] }); show("Empleado eliminado.", "success"); },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ["empleados"] }); 
+      show("Empleado eliminado correctamente.", "success", false); 
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
@@ -172,7 +188,7 @@ export default function EmpleadoModule() {
             className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
             + Nuevo Empleado
           </button>
-</div>
+        </div>
       </div>
 
       {/* Stats */}
@@ -241,8 +257,14 @@ export default function EmpleadoModule() {
                       <td className="px-4 py-3"><Badge label={e.estado} color={e.estado === "ACTIVO" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button onClick={() => edit(e)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Editar">✏️</button>
-                          <button onClick={() => remove2.mutate(e.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Eliminar">🗑️</button>
+                          <button onClick={() => edit(e)} title="Editar"
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Pencil size={13} color="#d97706" />
+                          </button>
+                          <button onClick={() => remove2.mutate(e.id)} title="Eliminar"
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Trash2 size={13} color="#dc2626" />
+                          </button>
                         </div>
                       </td>
                     </tr>

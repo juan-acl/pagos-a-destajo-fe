@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useAuthStore } from "@/store/authStore";
+import { Pencil, Trash2 } from "lucide-react";
 import { validateMiembro, hasErrors, type Errors } from "@/utils/validators";
 
 type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; estado: string; };
@@ -34,7 +35,7 @@ const TOUR_STEPS = [
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <span style={{ color: "#DC3545", fontSize: "11px", marginTop: "2px" }}>{msg}</span>;
+  return <span className="text-red-500 text-xs mt-1 block font-medium">{msg}</span>;
 }
 
 function TipIcon({ element, title, description }: { element: string; title: string; description: string }) {
@@ -73,10 +74,10 @@ export default function MiembroCuadrillaModule() {
 
   const { toasts, show, remove } = useToast();
 
-  // Tour con firma de develop
   const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_miembros-cuadrilla_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
+  
   useEffect(() => {
     if (!tourKey || tourDone) return;
     const interval = setInterval(() => {
@@ -113,7 +114,12 @@ export default function MiembroCuadrillaModule() {
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
   const resetMasivo = () => { setOpenMasivo(false); setCuadrillaSeleccionada(0); setFechaMasiva(""); setEmpleadosSeleccionados([]); setSearchMasivo(""); setErrorMasivoC(""); setErrorMasivoF(""); };
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); reset(); show("Miembro guardado correctamente.", "success"); };
+  // Corrección aquí: Enviamos los parámetros limpios a show()
+  const invalidate = () => { 
+    qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); 
+    reset(); 
+    show("Miembro guardado correctamente.", "success"); 
+  };
 
   const create = useMutation({
     mutationFn: (d: MiembroForm) => api.post("/miembros-cuadrilla", d),
@@ -129,7 +135,10 @@ export default function MiembroCuadrillaModule() {
 
   const remove2 = useMutation({
     mutationFn: (id: number) => api.delete(`/miembros-cuadrilla/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); show("Miembro eliminado.", "success"); },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); 
+      show("Miembro eliminado.", "success"); 
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
@@ -190,13 +199,13 @@ export default function MiembroCuadrillaModule() {
   };
 
   const selectCls = (field: string) =>
-    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full ${errors[field] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full transition-colors ${errors[field] ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`;
 
   const inputCls = (field: string) =>
-    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full ${errors[field] ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+    `border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full transition-colors ${errors[field] ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 py-6">
       <ToastContainer toasts={toasts} onRemove={remove} />
 
       {/* Header */}
@@ -205,8 +214,8 @@ export default function MiembroCuadrillaModule() {
           <h1 className="text-2xl font-bold text-gray-900 m-0">Miembros de Cuadrilla</h1>
           <p className="text-sm text-gray-500 mt-1">Gestione la asignación de empleados a cuadrillas de trabajo.</p>
         </div>
-        <div className="flex gap-3">
-            <button
+        <div className="flex flex-wrap gap-3">
+          <button
             onClick={startTour}
             className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer"
           >
@@ -224,14 +233,14 @@ export default function MiembroCuadrillaModule() {
       </div>
 
       {/* Stats */}
-      <div id="mic-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div id="mic-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Total Miembros", value: data.length, color: "text-gray-900" },
           { label: "Activos", value: activos, color: "text-[#2D6A4F]" },
           { label: "Inactivos", value: inactivos, color: "text-red-600" },
           { label: "Cuadrillas", value: cuadrillas.length, color: "text-gray-900" },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5">
+          <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{s.label}</p>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
           </div>
@@ -239,14 +248,14 @@ export default function MiembroCuadrillaModule() {
       </div>
 
       {/* Filtros */}
-      <div id="mic-filtros" className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3">
+      <div id="mic-filtros" className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-col md:flex-row gap-3 shadow-sm">
         <input placeholder="Buscar por empleado o código..." value={search} onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 min-w-0" />
-        <select value={filterCuadrilla} onChange={e => setFilterCuadrilla(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 focus:border-[#2D6A4F] transition-colors" />
+        <select value={filterCuadrilla} onChange={e => setFilterCuadrilla(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white focus:border-[#2D6A4F] transition-colors">
           <option value="">Cuadrilla: Todas</option>
           {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
-        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
+        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white focus:border-[#2D6A4F] transition-colors">
           <option value="">Estado: Todos</option>
           <option value="ACTIVO">ACTIVO</option>
           <option value="INACTIVO">INACTIVO</option>
@@ -254,7 +263,7 @@ export default function MiembroCuadrillaModule() {
       </div>
 
       {/* Tabla */}
-      <div id="mic-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="mic-tabla" className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         {isLoading ? <p className="text-center py-12 text-gray-400">Cargando...</p>
           : filtered.length === 0 ? <p className="text-center py-12 text-gray-400">Sin resultados</p>
           : (
@@ -288,8 +297,14 @@ export default function MiembroCuadrillaModule() {
                       <td className="px-4 py-3"><Badge label={m.estado} color={m.estado === "ACTIVO" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button onClick={() => edit(m)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">✏️</button>
-                          <button onClick={() => remove2.mutate(m.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">🗑️</button>
+                          <button onClick={() => edit(m)} title="Editar"
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Pencil size={13} color="#d97706" />
+                          </button>
+                          <button onClick={() => remove2.mutate(m.id)} title="Eliminar"
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Trash2 size={13} color="#dc2626" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -305,7 +320,6 @@ export default function MiembroCuadrillaModule() {
       <Modal open={open} title={editId ? "Editar Miembro" : "Nuevo Miembro de Cuadrilla"} subtitle="Asigne un empleado a una cuadrilla de trabajo." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Empleado *
@@ -348,17 +362,17 @@ export default function MiembroCuadrillaModule() {
                 Estado
                 {tourDone && <TipIcon element="#f-mic-estado" title="Estado" description="ACTIVO: opera en esta cuadrilla. INACTIVO: membresía suspendida." />}
               </label>
-              <div id="f-mic-estado" className="flex gap-4 mt-1">
+              <div id="f-mic-estado" className="flex gap-4 mt-2">
                 {["ACTIVO", "INACTIVO"].map(est => (
-                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                    <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
+                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
+                    <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} className="w-4 h-4 text-[#2D6A4F] focus:ring-[#2D6A4F]" />
                     {est.charAt(0) + est.slice(1).toLowerCase()}
                   </label>
                 ))}
               </div>
             </div>
-
           </div>
+          
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={create.isPending || update.isPending}
@@ -380,12 +394,13 @@ export default function MiembroCuadrillaModule() {
               </label>
               <select id="f-mas-cuadrilla" value={cuadrillaSeleccionada || ""}
                 onChange={e => { setCuadrillaSeleccionada(Number(e.target.value)); setEmpleadosSeleccionados([]); setErrorMasivoC(""); }}
-                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full ${errorMasivoC ? "border-red-400 bg-red-50" : "border-gray-200"}`}>
+                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full transition-colors ${errorMasivoC ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`}>
                 <option value="">Seleccione cuadrilla...</option>
                 {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
               <FieldError msg={errorMasivoC} />
             </div>
+            
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
                 Fecha de ingreso
@@ -394,7 +409,7 @@ export default function MiembroCuadrillaModule() {
               <input id="f-mas-fecha" type="date" value={fechaMasiva}
                 min="2000-01-01" max={new Date().toISOString().split("T")[0]}
                 onChange={e => { setFechaMasiva(e.target.value); setErrorMasivoF(""); }}
-                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full ${errorMasivoF ? "border-red-400 bg-red-50" : "border-gray-200"}`} />
+                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full transition-colors ${errorMasivoF ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`} />
               <FieldError msg={errorMasivoF} />
             </div>
           </div>
@@ -402,10 +417,10 @@ export default function MiembroCuadrillaModule() {
           {cuadrillaSeleccionada > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
                   Empleados disponibles
                   {empleadosSeleccionados.length > 0 && (
-                    <span className="ml-2 bg-[#2D6A4F] text-white text-xs px-2 py-0.5 rounded-full font-normal normal-case">
+                    <span className="bg-[#2D6A4F] text-white text-xs px-2 py-0.5 rounded-full font-normal normal-case">
                       {empleadosSeleccionados.length} seleccionados
                     </span>
                   )}
@@ -415,8 +430,8 @@ export default function MiembroCuadrillaModule() {
                 </button>
               </div>
               <input placeholder="Buscar empleado..." value={searchMasivo} onChange={e => setSearchMasivo(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 mb-3" />
-              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 mb-3 focus:border-[#2D6A4F] transition-colors" />
+              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-inner">
                 {empleadosDisponibles.length === 0 ? (
                   <p className="text-center py-8 text-sm text-gray-400">
                     {empleadosYaAsignados.length > 0 ? "Todos los empleados activos ya están asignados a esta cuadrilla" : "Sin empleados disponibles"}
@@ -425,7 +440,7 @@ export default function MiembroCuadrillaModule() {
                   <div key={e.id} onClick={() => toggleEmpleado(e.id)}
                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} ${empleadosSeleccionados.includes(e.id) ? "bg-green-50" : "hover:bg-gray-100"}`}>
                     <input type="checkbox" checked={empleadosSeleccionados.includes(e.id)} onChange={() => toggleEmpleado(e.id)}
-                      className="w-4 h-4 rounded border-gray-300 cursor-pointer" onClick={ev => ev.stopPropagation()} />
+                      className="w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F] cursor-pointer" onClick={ev => ev.stopPropagation()} />
                     <div className="w-8 h-8 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
                       {e.primerNombre[0]}{e.primerApellido[0]}
                     </div>
@@ -433,7 +448,7 @@ export default function MiembroCuadrillaModule() {
                       <p className="text-sm font-semibold text-gray-900">{e.primerNombre} {e.primerApellido}</p>
                       <p className="text-xs text-gray-400 font-mono">{e.codigoEmpleado ?? "-"}</p>
                     </div>
-                    {empleadosSeleccionados.includes(e.id) && <span className="text-[#2D6A4F] text-sm">✓</span>}
+                    {empleadosSeleccionados.includes(e.id) && <span className="text-[#2D6A4F] text-sm font-bold">✓</span>}
                   </div>
                 ))}
               </div>

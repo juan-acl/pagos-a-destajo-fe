@@ -10,6 +10,7 @@ import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useAuthStore } from "@/store/authStore";
 import { validateCuadrilla, hasErrors, type Errors } from "@/utils/validators";
+import { Pencil, Trash2 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -64,7 +65,6 @@ export default function CuadrillaModule() {
 
   const { toasts, show, remove } = useToast();
 
-  // Tour con firma de develop
   const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_cuadrillas_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
@@ -95,23 +95,34 @@ export default function CuadrillaModule() {
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); reset(); show("Cuadrilla guardada correctamente.", "success"); };
+  const invalidate = (msg: string) => { 
+    qc.invalidateQueries({ queryKey: ["cuadrillas"] }); 
+    reset(); 
+    show(msg, "success", false); 
+  };
 
   const create = useMutation({
     mutationFn: (d: CuadrillaForm) => api.post("/cuadrillas", d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Cuadrilla creada correctamente.");
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
   const update = useMutation({
     mutationFn: (d: CuadrillaForm) => api.put(`/cuadrillas/${editId}`, d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Cuadrilla actualizada correctamente.");
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
   const remove2 = useMutation({
     mutationFn: (id: number) => api.delete(`/cuadrillas/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["cuadrillas"] }); show("Cuadrilla eliminada.", "success"); },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ["cuadrillas"] }); 
+      show("Cuadrilla eliminada correctamente.", "success", false); 
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
@@ -146,22 +157,22 @@ export default function CuadrillaModule() {
       <ToastContainer toasts={toasts} onRemove={remove} />
 
       {/* Header */}
-<div id="cua-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
-  <div>
-    <h1 className="text-2xl font-bold text-gray-900 m-0">Cuadrillas</h1>
-    <p className="text-sm text-gray-500 mt-1">Gestione los grupos de trabajo y supervise su estado operativo.</p>
-  </div>
-  <div className="flex gap-3">
-    <button onClick={startTour}
-      className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer">
-      ¿Necesitas ayuda?
-    </button>
-    <button id="cua-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
-      className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
-      + Nueva Cuadrilla
-    </button>
-  </div>
-</div>
+      <div id="cua-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 m-0">Cuadrillas</h1>
+          <p className="text-sm text-gray-500 mt-1">Gestione los grupos de trabajo y supervise su estado operativo.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={startTour}
+            className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer">
+            ¿Necesitas ayuda?
+          </button>
+          <button id="cua-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
+            className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
+            + Nueva Cuadrilla
+          </button>
+        </div>
+      </div>
 
       {/* Stats */}
       <div id="cua-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -209,19 +220,20 @@ export default function CuadrillaModule() {
                     <tr key={c.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
                       <td className="px-4 py-3"><span className="font-mono text-xs text-gray-500 font-semibold">{c.codigoCuadrilla ?? "-"}</span></td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                            {c.nombre.charAt(0).toUpperCase()}
-                          </div>
-                          <p className="font-semibold text-gray-900">{c.nombre}</p>
-                        </div>
+                        <span className="font-semibold text-gray-900">{c.nombre}</span>
                       </td>
-                      <td className="px-4 py-3">{getNombreArea(c.areaId) ? <Badge label={getNombreArea(c.areaId)!} color="amber" /> : <span className="text-xs text-gray-400">Sin área</span>}</td>
+                      <td className="px-4 py-3">{getNombreArea(c.areaId) ? <Badge label={getNombreArea(c.areaId)!} color="green" /> : <span className="text-xs text-gray-400">Sin área</span>}</td>
                       <td className="px-4 py-3"><Badge label={c.estado} color={c.estado === "ACTIVO" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <button onClick={() => edit(c)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">✏️</button>
-                          <button onClick={() => remove2.mutate(c.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors">🗑️</button>
+                          <button onClick={() => edit(c)} title="Editar"
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Pencil size={13} color="#d97706" />
+                          </button>
+                          <button onClick={() => remove2.mutate(c.id)} title="Eliminar"
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+                            <Trash2 size={13} color="#dc2626" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -256,45 +268,37 @@ export default function CuadrillaModule() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "Editar Cuadrilla" : "Nueva Cuadrilla"} subtitle="Complete la información para registrar la cuadrilla." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Cuadrilla" : "Nueva Cuadrilla"} subtitle="Complete la información para registrar la cuadrilla de trabajo." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            {editId && (
-              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
-                Código de Cuadrilla
-                <input value={data.find(c => c.id === editId)?.codigoCuadrilla ?? ""} readOnly
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
-              </label>
-            )}
-
-            <div className="flex flex-col gap-1">
+            
+            <div className="flex flex-col gap-1 sm:col-span-2">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Nombre *
-                {tourDone && <TipIcon element="#f-cua-nombre" title="Nombre" description="Nombre descriptivo único. Ej: Cuadrilla Norte. Máximo 80 caracteres." />}
+                Nombre de Cuadrilla *
+                {tourDone && <TipIcon element="#f-[#cua-nombre]" title="Nombre de Cuadrilla" description="Asigne un nombre identificatorio único para la cuadrilla." />}
               </label>
-              <input id="f-cua-nombre" name="nombre" placeholder="Ej. Cuadrilla Norte" value={form.nombre} onChange={change} className={inputCls("nombre")} />
+              <input id="cua-nombre" name="nombre" placeholder="Ej. Cuadrilla de Corte A" value={form.nombre} onChange={change} className={inputCls("nombre")} />
               <FieldError msg={errors.nombre} />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Área
-                {tourDone && <TipIcon element="#f-cua-area" title="Área Productiva" description="Define en qué área opera esta cuadrilla. Afecta la agrupación en reportes." />}
+                Área Asignada
+                {tourDone && <TipIcon element="#f-area" title="Área Asignada" description="Seleccione el área de producción a la que pertenece este grupo." />}
               </label>
-              <select id="f-cua-area" name="areaId" value={form.areaId ?? ""} onChange={change}
+              <select id="f-area" name="areaId" value={form.areaId ?? ""} onChange={change}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white">
-                <option value="">Sin área</option>
+                <option value="">Seleccione área...</option>
                 {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
+              <FieldError msg={errors.areaId} />
             </div>
 
-            <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Estado
-                {tourDone && <TipIcon element="#f-cua-estado" title="Estado" description="ACTIVO: puede recibir órdenes. INACTIVO: suspendida pero con historial conservado." />}
+                Estado Operativo
               </label>
-              <div id="f-cua-estado" className="flex gap-4 mt-1">
+              <div className="flex gap-4 mt-1">
                 {["ACTIVO", "INACTIVO"].map(est => (
                   <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
@@ -309,7 +313,7 @@ export default function CuadrillaModule() {
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={create.isPending || update.isPending}
               className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
-              {editId ? "Actualizar" : "Guardar Cuadrilla"}
+              {editId ? "Actualizar Cuadrilla" : "Guardar Cuadrilla"}
             </button>
           </div>
         </form>

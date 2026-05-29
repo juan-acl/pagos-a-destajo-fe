@@ -1,10 +1,10 @@
 import type { Toast } from "@/hooks/useToast";
 
 const ICONS: Record<string, string> = {
-  success: "✅",
-  error: "❌",
-  warning: "⚠️",
-  info: "ℹ️",
+  success: "",
+  error: "",
+  warning: "",
+  info: "",
 };
 
 const COLORS: Record<string, string> = {
@@ -26,7 +26,7 @@ type Props = {
   onRemove: (id: number) => void;
 };
 
-export default function ToastContainer({ toasts, onRemove }: Props) {
+export default function ToastContainer({ toasts = [], onRemove }: Props) {
   if (toasts.length === 0) return null;
 
   return (
@@ -59,9 +59,13 @@ export default function ToastContainer({ toasts, onRemove }: Props) {
             animation: "slideIn 0.2s ease",
           }}
         >
-          <span style={{ fontSize: "16px", lineHeight: 1.4, flexShrink: 0 }}>
-            {ICONS[t.type]}
-          </span>
+          {/* MODIFICACIÓN AQUÍ: Solo muestra el icono si showIcon no es false */}
+          {t.showIcon !== false && (
+            <span style={{ fontSize: "16px", lineHeight: 1.4, flexShrink: 0 }}>
+              {ICONS[t.type]}
+            </span>
+          )}
+          
           <p style={{
             margin: 0, flex: 1,
             fontSize: "13px", lineHeight: 1.5,

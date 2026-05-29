@@ -89,7 +89,7 @@ export default function OrdenTrabajo() {
   const inactivas = data.filter(o => o.estado === "inactivo").length;
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["ordenes-trabajo"] }); reset(); show("Orden guardada correctamente.", "success"); };
+  const invalidate = () => { qc.invalidateQueries({ queryKey: ["ordenes-trabajo"] }); reset(); show("Orden guardada correctamente.", "success", false); };
 
   const create = useMutation({
     mutationFn: (d: OrdenTrabajoForm) => api.post("/ordenes-trabajo", d),
@@ -164,15 +164,12 @@ export default function OrdenTrabajo() {
       {/* Stats */}
       <div id="ordenes-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
-          { label: "Total Órdenes", value: data.length, color: "text-gray-900", icon: "📋" },
-          { label: "Activas", value: activas, color: "text-[#2D6A4F]", icon: "✅" },
-          { label: "Inactivas", value: inactivas, color: "text-red-600", icon: "⛔" },
+          { label: "Total Órdenes", value: data.length, color: "text-gray-900" },
+          { label: "Activas", value: activas, color: "text-[#2D6A4F]" },
+          { label: "Inactivas", value: inactivas, color: "text-red-600" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">{s.icon}</span>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{s.label}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{s.label}</p>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -189,8 +186,8 @@ export default function OrdenTrabajo() {
         <select value={filterEstado} onChange={e => { setFilterEstado(e.target.value); setPage(1); }}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 bg-white">
           <option value="">Estado: Todos</option>
-          <option value="activo">✅ ACTIVO</option>
-          <option value="inactivo">⛔ INACTIVO</option>
+          <option value="activo">ACTIVO</option>
+          <option value="inactivo">INACTIVO</option>
         </select>
       </div>
 
@@ -211,15 +208,10 @@ export default function OrdenTrabajo() {
                 <tbody>
                   {paginated.map((o, i) => (
                     <tr key={o.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <ClipboardCheck size={13} color="#2D6A4F" />
-                          <span className="font-mono text-xs font-semibold text-gray-500">{o.numeroOrden}</span>
-                        </div>
-                      </td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-500">{o.numeroOrden}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{o.cantidadRequerida}</td>
                       <td className="px-4 py-3"><Badge label={getMedidaNombre(o.medidaId)} color="blue" /></td>
-                      <td className="px-4 py-3"><Badge label={o.modalidad === "PAGO_POR_DIAS" ? "📅 Por día" : "🔧 Destajo"} color={o.modalidad === "PAGO_POR_DIAS" ? "amber" : "green"} /></td>
+                      <td className="px-4 py-3"><Badge label={o.modalidad === "PAGO_POR_DIAS" ? "Por día" : "Destajo"} color={o.modalidad === "PAGO_POR_DIAS" ? "amber" : "green"} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <DollarSign size={13} color="#2D6A4F" />
@@ -278,7 +270,7 @@ export default function OrdenTrabajo() {
       </div>
 
       {/* Modal */}
-      <Modal open={open} title={editId ? "✏️ Editar Orden de Trabajo" : "📋 Nueva Orden de Trabajo"} subtitle="El número de orden se genera automáticamente al guardar." onClose={reset}>
+      <Modal open={open} title={editId ? "Editar Orden de Trabajo" : "Nueva Orden de Trabajo"} subtitle="El número de orden se genera automáticamente al guardar." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {editId && (
@@ -312,8 +304,8 @@ export default function OrdenTrabajo() {
                 {tourDone && <TipIcon element="#f-ord-modalidad" title="Modalidad de Pago" description="Destajo: se paga por pieza producida. Pago por día: se paga por día trabajado." />}
               </label>
               <select id="f-ord-modalidad" name="modalidad" value={form.modalidad} onChange={change} className={selectCls("modalidad")}>
-                <option value="DESTAJO">🔧 Destajo (por pieza)</option>
-                <option value="PAGO_POR_DIAS">📅 Pago por día</option>
+                <option value="DESTAJO">Destajo (por pieza)</option>
+                <option value="PAGO_POR_DIAS">Pago por día</option>
               </select>
               <FieldError msg={errors.modalidad} />
             </div>
@@ -343,7 +335,7 @@ export default function OrdenTrabajo() {
                 {["activo", "inactivo"].map(est => (
                   <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
-                    {est === "activo" ? "✅ Activo" : "⛔ Inactivo"}
+                    {est === "activo" ? "Activo" : "Inactivo"}
                   </label>
                 ))}
               </div>
