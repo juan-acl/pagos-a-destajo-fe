@@ -8,7 +8,7 @@ import { fetchAreas } from "@/api/area.api";
 import { s } from "@/styles/area.styles";
 import Modal from "@/components/ui/Modal";
 import Stats from "@/components/commons/stats";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Map } from "lucide-react";
 import ToastContainer from "@/components/ui/Toastcontainer";
 import { useToast } from "@/hooks/useToast";
 import {
@@ -169,7 +169,6 @@ export default function Area() {
     }, []);
   }, [data]);
 
-  // CORRECCIÓN: Aislamos la función para evitar interferencias de React Query
   const invalidate = (msg: string) => { 
     qc.invalidateQueries({ queryKey: ["area"] }); 
     reset(); 
@@ -200,7 +199,7 @@ export default function Area() {
     mutationFn: (id: number) => api.delete(`/area/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["area"] });
-      show("Área eliminada correctamente.", "success", false);
+      show("Área Openizada correctamente.", "success", false);
     },
     onError: (error: AxiosError<unknown>) => {
       show(getErrorMessage(error), "error");
@@ -293,11 +292,16 @@ export default function Area() {
     <div className="max-w-7xl mx-auto">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div style={s.header}>
-        <div id="area-title">
-          <h1 style={s.title}>Áreas</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Organice y gestione las áreas de producción y su estado operativo.
-          </p>
+        <div id="area-title" className="flex items-center gap-3">
+          <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Map size={22} color="#2D6A4F" />
+          </div>
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Áreas</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Organice y gestione las áreas de producción y su estado operativo.
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button id="area-ayuda-btn" style={s.btnHelp} onClick={startTour}>

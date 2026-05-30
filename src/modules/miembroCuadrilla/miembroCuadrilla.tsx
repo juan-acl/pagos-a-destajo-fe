@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useAuthStore } from "@/store/authStore";
-import { Pencil, Trash2 } from "lucide-react";
+// Importamos Link para usarlo como el ícono de cadena del encabezado del módulo
+import { Pencil, Trash2, Link } from "lucide-react";
 import { validateMiembro, hasErrors, type Errors } from "@/utils/validators";
 
 type Empleado = { id: number; codigoEmpleado: string | null; primerNombre: string; primerApellido: string; estado: string; };
@@ -114,7 +115,6 @@ export default function MiembroCuadrillaModule() {
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
   const resetMasivo = () => { setOpenMasivo(false); setCuadrillaSeleccionada(0); setFechaMasiva(""); setEmpleadosSeleccionados([]); setSearchMasivo(""); setErrorMasivoC(""); setErrorMasivoF(""); };
 
-  // Corrección aquí: Enviamos los parámetros limpios a show()
   const invalidate = () => { 
     qc.invalidateQueries({ queryKey: ["miembros-cuadrilla"] }); 
     reset(); 
@@ -208,13 +208,19 @@ export default function MiembroCuadrillaModule() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <ToastContainer toasts={toasts} onRemove={remove} />
 
-      {/* Header */}
+      {/* Header con el ícono integrado */}
       <div id="mic-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Miembros de Cuadrilla</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestione la asignación de empleados a cuadrillas de trabajo.</p>
+        <div className="flex items-start gap-4">
+          {/* Contenedor del ícono del módulo */}
+          <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center shrink-0 text-[#2D6A4F] mt-1">
+            <Link className="w-5 h-5" strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0">Miembros de Cuadrilla</h1>
+            <p className="text-sm text-gray-500 mt-1">Gestione la asignación de empleados a cuadrillas de trabajo.</p>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 self-end sm:self-center">
           <button
             onClick={startTour}
             className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer"
@@ -271,7 +277,7 @@ export default function MiembroCuadrillaModule() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-50">
-                    {["Empleado", "Cuadrilla", "Fecha Ingreso", "Estado", "Acciones"].map(h => (
+                    {["Código", "Empleado", "Cuadrilla", "Fecha Ingreso", "Estado", "Acciones"].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
@@ -279,31 +285,22 @@ export default function MiembroCuadrillaModule() {
                 <tbody>
                   {filtered.map((m, i) => (
                     <tr key={m.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-green-50 transition-colors`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                            {m.empleado ? `${m.empleado.primerNombre[0]}${m.empleado.primerApellido[0]}` : "?"}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {m.empleado ? `${m.empleado.primerNombre} ${m.empleado.primerApellido}` : `ID: ${m.empleadoId}`}
-                            </p>
-                            <p className="text-xs text-gray-400 font-mono">{m.empleado?.codigoEmpleado ?? "-"}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">{m.cuadrilla ? <Badge label={m.cuadrilla.nombre} color="amber" /> : <span className="text-xs text-gray-400">ID: {m.cuadrillaId}</span>}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{formatFecha(m.fechaIngreso)}</td>
+                      <td className="px-4 py-3"><span className="font-mono text-xs text-gray-500 font-semibold">{m.empleado?.codigoEmpleado ?? "-"}</span></td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">{m.empleado?.primerNombre} {m.empleado?.primerApellido}</td>
+                      <td className="px-4 py-3"><Badge label={m.cuadrilla?.nombre ?? "-"} color="green" /></td>
+                      <td className="px-4 py-3 text-gray-600">{formatFecha(m.fechaIngreso)}</td>
                       <td className="px-4 py-3"><Badge label={m.estado} color={m.estado === "ACTIVO" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <button onClick={() => edit(m)} title="Editar"
-                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
-                            <Pencil size={13} color="#d97706" />
+                            type="button"
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md p-1.5 cursor-pointer transition-colors flex items-center justify-center text-amber-600">
+                            <Pencil className="w-3.5 h-3.5" strokeWidth={2.5} />
                           </button>
                           <button onClick={() => remove2.mutate(m.id)} title="Eliminar"
-                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
-                            <Trash2 size={13} color="#dc2626" />
+                            type="button"
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md p-1.5 cursor-pointer transition-colors flex items-center justify-center text-red-600">
+                            <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
                           </button>
                         </div>
                       </td>
@@ -313,156 +310,117 @@ export default function MiembroCuadrillaModule() {
               </table>
             </div>
           )}
-        {filtered.length > 0 && <p className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">Mostrando {filtered.length} de {data.length} miembros</p>}
       </div>
 
-      {/* Modal individual */}
-      <Modal open={open} title={editId ? "Editar Miembro" : "Nuevo Miembro de Cuadrilla"} subtitle="Asigne un empleado a una cuadrilla de trabajo." onClose={reset}>
+      {/* Modal Formulario Individual */}
+      <Modal open={open} title={editId ? "Editar Miembro" : "Asignar Miembro a Cuadrilla"} subtitle="Asocie un empleado a un grupo de trabajo y defina su fecha de ingreso." onClose={reset}>
         <form onSubmit={submit} noValidate>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Empleado *
-                {tourDone && <TipIcon element="#f-mic-empleado" title="Empleado" description="Solo se muestran empleados ACTIVOS." />}
-              </label>
-              <select id="f-mic-empleado" name="empleadoId" value={form.empleadoId || ""} onChange={change} className={selectCls("empleadoId")}>
-                <option value="">Seleccione empleado...</option>
-                {empleados.filter(e => e.estado !== "INACTIVO").map(e => (
-                  <option key={e.id} value={e.id}>{e.codigoEmpleado} - {e.primerNombre} {e.primerApellido}</option>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">Empleado *</label>
+              <select name="empleadoId" value={form.empleadoId} onChange={change} disabled={!!editId} className={`${selectCls("empleadoId")} ${editId ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}>
+                <option value={0}>Seleccione empleado...</option>
+                {empleados.filter(e => e.estado === "ACTIVO" || editId).map(e => (
+                  <option key={e.id} value={e.id}>[{e.codigoEmpleado ?? "S/C"}] {e.primerNombre} {e.primerApellido}</option>
                 ))}
               </select>
               <FieldError msg={errors.empleadoId} />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Cuadrilla *
-                {tourDone && <TipIcon element="#f-mic-cuadrilla" title="Cuadrilla" description="Grupo de trabajo al que se incorpora el empleado." />}
-              </label>
-              <select id="f-mic-cuadrilla" name="cuadrillaId" value={form.cuadrillaId || ""} onChange={change} className={selectCls("cuadrillaId")}>
-                <option value="">Seleccione cuadrilla...</option>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">Cuadrilla *</label>
+              <select name="cuadrillaId" value={form.cuadrillaId} onChange={change} className={selectCls("cuadrillaId")}>
+                <option value={0}>Seleccione cuadrilla...</option>
                 {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
               <FieldError msg={errors.cuadrillaId} />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Fecha de Ingreso
-                {tourDone && <TipIcon element="#f-mic-fecha" title="Fecha de Ingreso" description="No puede ser futura ni anterior al año 2000." />}
-              </label>
-              <input id="f-mic-fecha" name="fechaIngreso" type="date" value={form.fechaIngreso}
-                min="2000-01-01" max={new Date().toISOString().split("T")[0]}
-                onChange={change} className={inputCls("fechaIngreso")} />
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">Fecha de Ingreso</label>
+              <input type="date" name="fechaIngreso" value={form.fechaIngreso} onChange={change} className={inputCls("fechaIngreso")} />
               <FieldError msg={errors.fechaIngreso} />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Estado
-                {tourDone && <TipIcon element="#f-mic-estado" title="Estado" description="ACTIVO: opera en esta cuadrilla. INACTIVO: membresía suspendida." />}
-              </label>
-              <div id="f-mic-estado" className="flex gap-4 mt-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">Estado</label>
+              <div className="flex gap-4 mt-2">
                 {["ACTIVO", "INACTIVO"].map(est => (
-                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">
-                    <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} className="w-4 h-4 text-[#2D6A4F] focus:ring-[#2D6A4F]" />
+                  <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                    <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
                     {est.charAt(0) + est.slice(1).toLowerCase()}
                   </label>
                 ))}
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="submit" disabled={create.isPending || update.isPending}
-              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
-              {editId ? "Actualizar" : "Guardar Miembro"}
+            <button type="submit" disabled={create.isPending || update.isPending} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
+              {editId ? "Actualizar Miembro" : "Guardar Miembro"}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Modal masivo */}
-      <Modal open={openMasivo} title="Asignación masiva" subtitle="Selecciona una cuadrilla y elige los empleados a asignar." onClose={resetMasivo} width={640}>
-        <div className="flex flex-col gap-5">
+      {/* Modal Formulario Masivo */}
+      <Modal open={openMasivo} title="Asignación Masiva a Cuadrilla" subtitle="Seleccione múltiples empleados para agregarlos simultáneamente a una cuadrilla." onClose={resetMasivo}>
+        <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Cuadrilla *
-                {tourDone && <TipIcon element="#f-mas-cuadrilla" title="Cuadrilla destino" description="Todos los empleados seleccionados serán asignados a esta cuadrilla." />}
-              </label>
-              <select id="f-mas-cuadrilla" value={cuadrillaSeleccionada || ""}
-                onChange={e => { setCuadrillaSeleccionada(Number(e.target.value)); setEmpleadosSeleccionados([]); setErrorMasivoC(""); }}
-                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full transition-colors ${errorMasivoC ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`}>
-                <option value="">Seleccione cuadrilla...</option>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cuadrilla Destino *</label>
+              <select value={cuadrillaSeleccionada} onChange={e => setCuadrillaSeleccionada(Number(e.target.value))} className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full ${errorMasivoC ? "border-red-400 bg-red-50" : "border-gray-200"}`}>
+                <option value={0}>Seleccione cuadrilla...</option>
                 {cuadrillas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
-              <FieldError msg={errorMasivoC} />
+              {errorMasivoC && <span className="text-red-500 text-xs mt-1 block font-medium">{errorMasivoC}</span>}
             </div>
-            
+
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center">
-                Fecha de ingreso
-                {tourDone && <TipIcon element="#f-mas-fecha" title="Fecha masiva" description="Se aplicará la misma fecha a todos los empleados seleccionados." />}
-              </label>
-              <input id="f-mas-fecha" type="date" value={fechaMasiva}
-                min="2000-01-01" max={new Date().toISOString().split("T")[0]}
-                onChange={e => { setFechaMasiva(e.target.value); setErrorMasivoF(""); }}
-                className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full transition-colors ${errorMasivoF ? "border-red-400 bg-red-50 focus:border-red-400" : "border-gray-200 focus:border-[#2D6A4F]"}`} />
-              <FieldError msg={errorMasivoF} />
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha de Ingreso (Opcional)</label>
+              <input type="date" value={fechaMasiva} onChange={e => setFechaMasiva(e.target.value)} className={`border rounded-lg px-3 py-2 text-sm text-gray-900 outline-none w-full ${errorMasivoF ? "border-red-400 bg-red-50" : "border-gray-200"}`} />
+              {errorMasivoF && <span className="text-red-500 text-xs mt-1 block font-medium">{errorMasivoF}</span>}
             </div>
           </div>
 
-          {cuadrillaSeleccionada > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
-                  Empleados disponibles
-                  {empleadosSeleccionados.length > 0 && (
-                    <span className="bg-[#2D6A4F] text-white text-xs px-2 py-0.5 rounded-full font-normal normal-case">
-                      {empleadosSeleccionados.length} seleccionados
-                    </span>
-                  )}
-                </p>
-                <button type="button" onClick={toggleTodos} className="text-xs text-[#2D6A4F] font-semibold bg-transparent border-0 cursor-pointer hover:underline">
-                  {empleadosSeleccionados.length === empleadosDisponibles.length && empleadosDisponibles.length > 0 ? "Deseleccionar todos" : "Seleccionar todos"}
-                </button>
-              </div>
-              <input placeholder="Buscar empleado..." value={searchMasivo} onChange={e => setSearchMasivo(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 mb-3 focus:border-[#2D6A4F] transition-colors" />
-              <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto shadow-inner">
-                {empleadosDisponibles.length === 0 ? (
-                  <p className="text-center py-8 text-sm text-gray-400">
-                    {empleadosYaAsignados.length > 0 ? "Todos los empleados activos ya están asignados a esta cuadrilla" : "Sin empleados disponibles"}
-                  </p>
-                ) : empleadosDisponibles.map((e, i) => (
-                  <div key={e.id} onClick={() => toggleEmpleado(e.id)}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${i % 2 === 0 ? "bg-white" : "bg-gray-50"} ${empleadosSeleccionados.includes(e.id) ? "bg-green-50" : "hover:bg-gray-100"}`}>
-                    <input type="checkbox" checked={empleadosSeleccionados.includes(e.id)} onChange={() => toggleEmpleado(e.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-[#2D6A4F] focus:ring-[#2D6A4F] cursor-pointer" onClick={ev => ev.stopPropagation()} />
-                    <div className="w-8 h-8 rounded-full bg-[#2D6A4F] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      {e.primerNombre[0]}{e.primerApellido[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{e.primerNombre} {e.primerApellido}</p>
-                      <p className="text-xs text-gray-400 font-mono">{e.codigoEmpleado ?? "-"}</p>
-                    </div>
-                    {empleadosSeleccionados.includes(e.id) && <span className="text-[#2D6A4F] text-sm font-bold">✓</span>}
-                  </div>
-                ))}
-              </div>
-              {empleadosYaAsignados.length > 0 && (
-                <p className="text-xs text-gray-400 mt-2">{empleadosYaAsignados.length} empleado(s) ya asignados no aparecen en la lista.</p>
-              )}
-            </div>
-          )}
+          <div className="flex flex-col gap-2 mt-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Seleccionar Empleados Activos</label>
+            <input placeholder="Filtrar empleados por nombre o código..." value={searchMasivo} onChange={e => setSearchMasivo(e.target.value)} disabled={!cuadrillaSeleccionada} className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed" />
 
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
+            {cuadrillaSeleccionada > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden mt-1">
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Lista de Disponibles ({empleadosDisponibles.length})</span>
+                  {empleadosDisponibles.length > 0 && (
+                    <button onClick={toggleTodos} className="text-xs font-bold text-[#2D6A4F] bg-transparent border-0 cursor-pointer hover:underline">
+                      {empleadosSeleccionados.length === empleadosDisponibles.length ? "Desmarcar todos" : "Seleccionar todos"}
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 bg-white">
+                  {empleadosDisponibles.length === 0 ? (
+                    <p className="text-center py-6 text-xs text-gray-400">No hay más empleados disponibles para asignar.</p>
+                  ) : (
+                    empleadosDisponibles.map(e => {
+                      const isSel = empleadosSeleccionados.includes(e.id);
+                      return (
+                        <div key={e.id} onClick={() => toggleEmpleado(e.id)} className={`px-3 py-2 flex items-center gap-3 cursor-pointer transition-colors ${isSel ? "bg-green-50" : "hover:bg-gray-50"}`}>
+                          <input type="checkbox" checked={isSel} readOnly className="cursor-pointer" />
+                          <span className="text-sm text-gray-900 font-medium">[{e.codigoEmpleado ?? "S/C"}] {e.primerNombre} {e.primerApellido}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-4 pt-5 border-t border-gray-100">
             <button type="button" onClick={resetMasivo} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button type="button" onClick={submitMasivo} disabled={loadingMasivo || !cuadrillaSeleccionada || empleadosSeleccionados.length === 0}
-              className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
-              {loadingMasivo ? "Asignando..." : `Asignar ${empleadosSeleccionados.length > 0 ? `(${empleadosSeleccionados.length})` : ""}`}
+            <button onClick={submitMasivo} disabled={loadingMasivo || !cuadrillaSeleccionada || empleadosSeleccionados.length === 0} className="bg-[#2D6A4F] text-white rounded-lg px-5 py-2.5 text-sm font-semibold border-0 cursor-pointer hover:bg-[#245a42] transition-colors disabled:opacity-50">
+              {loadingMasivo ? "Asignando..." : `Asignar ${empleadosSeleccionados.length} Empleado(s)`}
             </button>
           </div>
         </div>

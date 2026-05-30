@@ -5,6 +5,7 @@ import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { Search } from "lucide-react";
 
 type PendingReport = {
   id: number;
@@ -100,6 +101,7 @@ export default function ProductionReviewPage() {
 
   const cantidadRecibida = Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0);
 
+  // CORREGIDO: Eliminada la dependencia e instrucción rota que causaba el crash de la aplicación
   const porcentajeRechazo = useMemo(() => {
     if (!cantidadRecibida || cantidadRecibida <= 0) return 0;
     return Number((((cantidadRecibida - Number(cantidadAprobada || 0)) / cantidadRecibida) * 100).toFixed(2));
@@ -167,8 +169,16 @@ export default function ProductionReviewPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        {/* Encabezado estructurado exactamente igual que la barra lateral */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50/50">
+            <Search className="w-5 h-5 text-slate-500" strokeWidth={2} />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 m-0 tracking-tight">
+            Revisión y Aprobación de Producción
+          </h1>
+        </div>
+        <p className="text-sm text-gray-500 mt-1.5 pl-[52px]">
           Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
         </p>
       </div>
@@ -201,7 +211,7 @@ export default function ProductionReviewPage() {
               setObservaciones("");
               setMessage(null);
             }}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
           >
             <option value="">Selecciona un reporte</option>
             {pending.map((item) => (
@@ -231,7 +241,7 @@ export default function ProductionReviewPage() {
                 type="number"
                 value={selectedReport ? cantidadRecibida : ""}
                 readOnly
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50"
+                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 focus:outline-none"
               />
             </label>
             <label className="block text-sm font-medium text-gray-700">
@@ -242,7 +252,7 @@ export default function ProductionReviewPage() {
                 max={cantidadRecibida || undefined}
                 value={cantidadAprobada}
                 onChange={(e) => setCantidadAprobada(e.target.value === "" ? "" : Number(e.target.value))}
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </label>
           </div>
@@ -258,7 +268,7 @@ export default function ProductionReviewPage() {
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               rows={4}
-              className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+              className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
               placeholder="Describe hallazgos o motivos de rechazo"
             />
           </label>

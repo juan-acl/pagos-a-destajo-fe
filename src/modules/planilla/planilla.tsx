@@ -30,7 +30,7 @@ import { useFilter } from "@/hooks/useFilter";
 import { useAuthStore } from "@/store/authStore";
 import { useTooltip } from "@/hooks/useTooltip";
 import { getErrorMessage } from "@/utils/api";
-import { BarChart, CircleCheckBig, CircleX } from "lucide-react";
+import { BarChart, CircleCheckBig, CircleX, FileText } from "lucide-react"; // Se agregó FileText aquí
 import { useTour } from "@/hooks/useTour";
 import { PLANILLA_TOUR_STEPS } from "./tour";
 
@@ -419,12 +419,15 @@ export default function Planilla() {
   return (
     <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <div id="planilla-title">
-          <h1 style={s.title}>Planillas</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Genere y gestione las planillas de pago vinculadas a lotes de
-            producción.
-          </p>
+        <div id="planilla-title" style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+          <FileText size={28} style={{ color: "#2D6A4F", marginTop: "2px" }} />
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Planillas</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Genere y gestione las planillas de pago vinculadas a lotes de
+              producción.
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button id="planilla-ayuda-btn" style={s.btnHelp} onClick={startTour}>
@@ -492,7 +495,7 @@ export default function Planilla() {
                 <TipIcon
                   element="#f-plan-orden"
                   title="Orden de Trabajo"
-                  description="Solo aparecen ordenes con cuadrilla activa asignada. Al seleccionar una orden de modalidad Por Dia, se habilita el rango de fechas para filtrar que dias incluir en la planilla."
+                  description="Solo aparecen ordenes con cuadrilla activa asignada. Al seleccionar una orden de modalidad Por Dia, se habilita el rango de fechas para filtrar que dias incluir in la planilla."
                 />
               )}
             </span>
@@ -807,8 +810,6 @@ export default function Planilla() {
         onClose={() => setEjecutarOpen(false)}
       >
         {errorMsg && <div style={s.error}>{errorMsg}</div>}
-
-
 
         <form
           onSubmit={(e) => {

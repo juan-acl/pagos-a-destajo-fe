@@ -10,7 +10,7 @@ import Modal from "@/components/ui/Modal";
 import Stats from "@/components/commons/stats";
 import { useFilter } from "@/hooks/useFilter";
 import { useTooltip } from "@/hooks/useTooltip";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Briefcase } from "lucide-react";
 import Filters, { type Option } from "@/components/commons/filters";
 import ToastContainer from "@/components/ui/Toastcontainer";
 import { useToast } from "@/hooks/useToast";
@@ -170,7 +170,6 @@ export default function Puesto() {
     }, []);
   }, [data]);
 
-  // CORRECCIÓN: Aislamos la función para evitar interferencias de React Query
   const invalidate = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["position-workers"] });
     reset();
@@ -296,12 +295,17 @@ export default function Puesto() {
     <div className="max-w-7xl mx-auto">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div style={s.header}>
-        <div id="puesto-title">
-          <h1 style={s.title}>Puestos</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Defina y gestione los puestos de trabajo disponibles en la
-            organización.
-          </p>
+        <div id="puesto-title" className="flex items-center gap-3">
+          <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Briefcase size={22} color="#2D6A4F" />
+          </div>
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Puestos</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Defina y gestione los puestos de trabajo disponibles en la
+              organización.
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button id="puesto-ayuda-btn" style={s.btnHelp} onClick={startTour}>

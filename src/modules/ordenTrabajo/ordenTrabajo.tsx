@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ClipboardCheck, Plus, HelpCircle, Pencil, Trash2, Search, Calendar, DollarSign } from "lucide-react";
+import { ClipboardCheck, Plus, HelpCircle, Pencil, Trash2, Search, Calendar } from "lucide-react";
 import api from "@/api";
 import { getErrorMessage } from "@/utils/api";
 import Badge from "@/components/ui/badge";
@@ -214,7 +214,6 @@ export default function OrdenTrabajo() {
                       <td className="px-4 py-3"><Badge label={o.modalidad === "PAGO_POR_DIAS" ? "Por día" : "Destajo"} color={o.modalidad === "PAGO_POR_DIAS" ? "amber" : "green"} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <DollarSign size={13} color="#2D6A4F" />
                           <span className="font-semibold text-gray-900">Q {Number(o.pagoUnitario).toFixed(2)}</span>
                           <span className="ml-1 text-xs font-normal text-gray-400">{o.modalidad === "PAGO_POR_DIAS" ? "/día" : "/pieza"}</span>
                         </div>
