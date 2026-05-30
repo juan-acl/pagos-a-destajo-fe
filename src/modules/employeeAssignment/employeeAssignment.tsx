@@ -4,8 +4,12 @@ import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
-import { ClipboardList } from "lucide-react"; // Ícono correcto de la imagen adjunta
+import { ClipboardList } from "lucide-react";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { EMPLOYEE_ASSIGNMENT_TOUR_STEPS } from "./tour";
 
 type AssignmentItem = {
   id: number;
@@ -99,12 +103,19 @@ const paginate = <T,>(items: T[], page: number) => {
 
 export default function EmployeeAssignmentPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [selectedPanelId, setSelectedPanelId] = useState<number | "">("");
   const [message, setMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [membersPage, setMembersPage] = useState(1);
   const [assignmentsPage, setAssignmentsPage] = useState(1);
+
+  const { startTour } = useTour(
+    EMPLOYEE_ASSIGNMENT_TOUR_STEPS,
+    "employee-assignment",
+    empleado?.id,
+  );
 
   const { data: panels = [], isLoading: loadingPanels } = useQuery({
     queryKey: ["employee-assignment-panels"],
@@ -167,27 +178,35 @@ export default function EmployeeAssignmentPage() {
     },
   });
 
-  return (
+return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        {/* Contenedor del encabezado unificado con ClipboardList */}
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="employee-assignment-title" className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50/50">
             <ClipboardList className="w-5 h-5 text-emerald-700" strokeWidth={2} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 m-0 tracking-tight">
-            Asignaciones
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0 tracking-tight">Asignaciones</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Sincroniza los empleados de la cuadrilla según la modalidad definida en la orden de trabajo.
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mt-1.5 pl-[52px]">
-          Sincroniza los empleados de la cuadrilla según la modalidad definida en la orden de trabajo.
-        </p>
+        
+        <button
+          id="employee-assignment-ayuda-btn"
+          type="button"
+          onClick={startTour}
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       <Toast message={message} type="error" onClose={() => setMessage(null)} />
       <Toast message={success} type="success" onClose={() => setSuccess(null)} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div id="employee-assignment-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Paneles activos", value: panels.length, color: "text-gray-900" },
           {
@@ -214,8 +233,19 @@ export default function EmployeeAssignmentPage() {
       </div>
 
       <div className="grid lg:grid-cols-[360px,1fr] gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Orden y cuadrilla</label>
+        <div id="employee-assignment-selector" className="bg-white rounded-xl border border-gray-200 p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <span className="inline-flex items-center gap-1">
+              Orden y cuadrilla
+              <DriveTooltip
+                id="ea-tooltip-orden-cuadrilla"
+                title="Orden y cuadrilla"
+                description="Selecciona la orden asignada a una cuadrilla. La modalidad de pago ya viene definida desde la orden de trabajo."
+                side="right"
+                align="start"
+              />
+            </span>
+          </label>
           <select
             value={selectedPanelId}
             onChange={(e) => {
@@ -237,7 +267,16 @@ export default function EmployeeAssignmentPage() {
           {selectedPanel && (
             <div className="mt-5 space-y-3 text-sm text-gray-700">
               <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-1">
-                <p className="font-semibold text-gray-900 mb-1">Resumen del panel</p>
+                <p className="font-semibold text-gray-900 mb-1 inline-flex items-center gap-1">
+                  Resumen del panel
+                  <DriveTooltip
+                    id="ea-tooltip-resumen-panel"
+                    title="Resumen del panel"
+                    description="Muestra la orden, cuadrilla, estado, cantidad asignada y cuántos empleados ya están sincronizados para este flujo."
+                    side="right"
+                    align="start"
+                  />
+                </p>
                 <p>Orden: <strong>{selectedPanel.orden?.numeroOrden ?? "-"}</strong></p>
                 <p>Cuadrilla: <strong>{selectedPanel.cuadrilla?.nombre ?? "-"}</strong></p>
                 <p>Estado de orden: <strong>{selectedPanel.orden?.estado ?? "-"}</strong></p>
@@ -250,7 +289,16 @@ export default function EmployeeAssignmentPage() {
               </div>
 
               <div className="rounded-lg border border-gray-100 p-4 space-y-2">
-                <p className="font-semibold text-gray-900">Flujo aplicado</p>
+                <p className="font-semibold text-gray-900 inline-flex items-center gap-1">
+                  Flujo aplicado
+                  <DriveTooltip
+                    id="ea-tooltip-flujo-aplicado"
+                    title="Flujo aplicado"
+                    description="Indica si la orden seguirá el flujo de destajo o de pago por día. En pago por día, este módulo no registra días; solo sincroniza empleados."
+                    side="right"
+                    align="start"
+                  />
+                </p>
                 {normalize(selectedPanel.modalidad) === "PAGO_POR_DIAS" ? (
                   <p className="text-amber-700">
                     Esta orden se paga por día. Este módulo solo sincroniza empleados; el registro de días se mantiene en Gestión de Días.
@@ -280,9 +328,18 @@ export default function EmployeeAssignmentPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div id="employee-assignment-members-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">Miembros de la cuadrilla</h2>
+            <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+              Miembros de la cuadrilla
+              <DriveTooltip
+                id="ea-tooltip-miembros-cuadrilla"
+                title="Miembros de la cuadrilla"
+                description="Lista los empleados activos de la cuadrilla seleccionada. Aquí no se asignan metas individuales; solo se verifica si ya están sincronizados."
+                side="bottom"
+                align="start"
+              />
+            </h2>
             <p className="text-sm text-gray-500">Se muestran sin metas individuales; la modalidad viene desde la orden.</p>
           </div>
 
@@ -331,10 +388,19 @@ export default function EmployeeAssignmentPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="employee-assignment-registered-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Asignaciones registradas</h2>
+            <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+              Asignaciones registradas
+              <DriveTooltip
+                id="ea-tooltip-asignaciones-registradas"
+                title="Asignaciones registradas"
+                description="Consulta la relación entre empleado, orden, cuadrilla y modalidad. Usa el buscador para encontrar registros específicos."
+                side="bottom"
+                align="start"
+              />
+            </h2>
             <p className="text-sm text-gray-500">Relación empleado, orden, cuadrilla y modalidad definida desde la orden.</p>
           </div>
           <input
