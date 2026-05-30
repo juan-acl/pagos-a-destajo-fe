@@ -144,6 +144,9 @@ export default function ProductionReviewPage() {
 
   const estadoResultante = porcentajeRechazo <= 20 ? "APROBADA" : "OBSERVADA";
   const observacionObligatoria = estadoResultante === "OBSERVADA";
+  const cantidadAprobadaMayorARecibida = Boolean(
+    selectedReport && cantidadAprobada !== "" && Number(cantidadAprobada) > cantidadRecibida,
+  );
 
   const reset = () => {
     setSelectedId("");
@@ -189,7 +192,7 @@ export default function ProductionReviewPage() {
       setMessage("Debes ingresar una cantidad aprobada válida.");
       return;
     }
-    if (Number(cantidadAprobada) > cantidadRecibida) {
+    if (cantidadAprobadaMayorARecibida) {
       setMessage("La cantidad aprobada no puede ser mayor a la reportada/recibida.");
       return;
     }
@@ -329,23 +332,30 @@ export default function ProductionReviewPage() {
                 }}
                 className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
               />
+              {cantidadAprobadaMayorARecibida && (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  La cantidad aprobada no puede ser mayor a la cantidad recibida/reportada.
+                </p>
+              )}
             </label>
           </div>
 
-          <div className="mt-4 rounded-lg border border-gray-100 p-4 bg-gray-50 text-sm text-gray-700 space-y-1">
-            <p className="inline-flex items-center gap-1">
-              Porcentaje de rechazo:
-              <strong className={porcentajeRechazo <= 20 ? "text-[#2D6A4F]" : "text-red-600"}>{porcentajeRechazo}%</strong>
-              <DriveTooltip
-                id="pr-tooltip-porcentaje-rechazo"
-                title="Porcentaje de rechazo"
-                description="El sistema calcula el rechazo comparando la cantidad recibida contra la cantidad aprobada. Si supera el 20%, la revisión queda observada."
-                side="right"
-                align="start"
-              />
-            </p>
-            <p>Estado resultante: <strong className={estadoResultante === "APROBADA" ? "text-[#2D6A4F]" : "text-red-600"}>{estadoResultante}</strong></p>
-          </div>
+          {!cantidadAprobadaMayorARecibida && (
+            <div className="mt-4 rounded-lg border border-gray-100 p-4 bg-gray-50 text-sm text-gray-700 space-y-1">
+              <p className="inline-flex items-center gap-1">
+                Porcentaje de rechazo:
+                <strong className={porcentajeRechazo <= 20 ? "text-[#2D6A4F]" : "text-red-600"}>{porcentajeRechazo}%</strong>
+                <DriveTooltip
+                  id="pr-tooltip-porcentaje-rechazo"
+                  title="Porcentaje de rechazo"
+                  description="El sistema calcula el rechazo comparando la cantidad recibida contra la cantidad aprobada. Si supera el 20%, la revisión queda observada."
+                  side="right"
+                  align="start"
+                />
+              </p>
+              <p>Estado resultante: <strong className={estadoResultante === "APROBADA" ? "text-[#2D6A4F]" : "text-red-600"}>{estadoResultante}</strong></p>
+            </div>
+          )}
 
           <label className="block text-sm font-medium text-gray-700 mt-4">
             <span className="inline-flex items-center gap-1">
