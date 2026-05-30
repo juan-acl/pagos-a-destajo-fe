@@ -150,5 +150,95 @@ export function validateMiembro(form: MiembroFormData): Errors {
   return e;
 }
 
+// ── Medida ────────────────────────────────────────────
+export type MedidaFormData = {
+  nombre: string;
+  iniciales: string;
+};
+
+export function validateMedida(form: MedidaFormData): Errors {
+  const e: Errors = {};
+
+  if (!form.nombre.trim())
+    e.nombre = "El nombre de la medida es obligatorio.";
+  else if (form.nombre.trim().length < 2)
+    e.nombre = "Mínimo 2 caracteres.";
+  else if (form.nombre.trim().length > 100)
+    e.nombre = "El nombre no puede superar 100 caracteres.";
+  else if (!NOMBRE_REGEX.test(form.nombre.trim()))
+    e.nombre = "Solo se permiten letras, números, espacios, guiones y puntos.";
+
+  if (!form.iniciales.trim())
+    e.iniciales = "Las iniciales son obligatorias.";
+  else if (form.iniciales.trim().length > 10)
+    e.iniciales = "Las iniciales no pueden superar 10 caracteres.";
+  else if (!CODIGO_REGEX.test(form.iniciales.trim()))
+    e.iniciales = "Solo se permiten letras, números y guiones.";
+
+  return e;
+}
+
+// ── Orden de Trabajo ──────────────────────────────────
+export type OrdenTrabajoFormData = {
+  cantidadRequerida: number;
+  pagoUnitario: number;
+  medidaId?: number | null;
+  fechaLimite?: string | null;
+  estado: string;
+  modalidad: string;
+};
+
+export function validateOrdenTrabajo(form: OrdenTrabajoFormData): Errors {
+  const e: Errors = {};
+
+  if (!form.cantidadRequerida || form.cantidadRequerida <= 0)
+    e.cantidadRequerida = "La cantidad requerida debe ser mayor a cero.";
+  else if (!Number.isInteger(form.cantidadRequerida))
+    e.cantidadRequerida = "La cantidad debe ser un número entero.";
+  else if (form.cantidadRequerida > 999999)
+    e.cantidadRequerida = "La cantidad no puede superar 999,999 unidades.";
+
+  if (!form.pagoUnitario || form.pagoUnitario <= 0)
+    e.pagoUnitario = "El pago unitario debe ser mayor a cero.";
+  else if (form.pagoUnitario > 99999)
+    e.pagoUnitario = "El pago unitario no puede superar Q99,999.";
+
+  if (form.fechaLimite) {
+    const fecha = new Date(form.fechaLimite + "T12:00:00");
+    if (isNaN(fecha.getTime()))
+      e.fechaLimite = "La fecha ingresada no es válida.";
+    else if (fecha < MIN_FECHA)
+      e.fechaLimite = "La fecha no puede ser anterior al año 2000.";
+  }
+
+  if (!form.modalidad)
+    e.modalidad = "Debes seleccionar una modalidad de pago.";
+
+  return e;
+}
+
+// ── Asignación Orden Cuadrilla ────────────────────────
+export type AsignacionOrdenFormData = {
+  ordenTrabajoId: number;
+  cuadrillaId: number;
+  cantidadAsignada: number;
+  estado: string;
+};
+
+export function validateAsignacionOrden(form: AsignacionOrdenFormData): Errors {
+  const e: Errors = {};
+
+  if (!form.ordenTrabajoId || form.ordenTrabajoId === 0)
+    e.ordenTrabajoId = "Debes seleccionar una orden de trabajo.";
+
+  if (!form.cuadrillaId || form.cuadrillaId === 0)
+    e.cuadrillaId = "Debes seleccionar una cuadrilla.";
+
+  if (!form.cantidadAsignada || form.cantidadAsignada <= 0)
+    e.cantidadAsignada = "La cantidad asignada debe ser mayor a cero.";
+
+  return e;
+}
+
 // ── Helper: ¿hay errores? ─────────────────────────────────
 export const hasErrors = (errors: Errors) => Object.keys(errors).length > 0;

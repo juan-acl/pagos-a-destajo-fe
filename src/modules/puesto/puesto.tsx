@@ -10,13 +10,16 @@ import Modal from "@/components/ui/Modal";
 import Stats from "@/components/commons/stats";
 import { useFilter } from "@/hooks/useFilter";
 import { useTooltip } from "@/hooks/useTooltip";
+import { Pencil, Trash2, Briefcase } from "lucide-react";
 import Filters, { type Option } from "@/components/commons/filters";
+import ToastContainer from "@/components/ui/Toastcontainer";
+import { useToast } from "@/hooks/useToast";
 import {
   puestoFormFields,
   puestoStats,
   type FormField,
 } from "@/constants/puesto.constants";
-import type { AxiosError } from "node_modules/axios/index.d.cts";
+import type { AxiosError } from "axios";
 import { getErrorMessage } from "@/utils/api";
 import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/store/authStore";
@@ -77,6 +80,7 @@ function TipIcon({
 export default function Puesto() {
   const qc = useQueryClient();
   const { empleado } = useAuthStore();
+  const { show, toasts, remove: removeToast } = useToast();
   const [form, setForm] = useState<PuestoForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -166,14 +170,17 @@ export default function Puesto() {
     }, []);
   }, [data]);
 
-  const invalidate = () => {
+  const invalidate = (msg: string) => {
     qc.invalidateQueries({ queryKey: ["position-workers"] });
     reset();
+    show(msg, "success", false);
   };
 
   const create = useMutation({
     mutationFn: (d: PuestoForm) => api.post("/position-workers", d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Puesto creado correctamente.");
+    },
     onError: (error: AxiosError<unknown>) => {
       setErrorMessage(getErrorMessage(error));
     },
@@ -181,7 +188,9 @@ export default function Puesto() {
 
   const update = useMutation({
     mutationFn: (d: PuestoForm) => api.put(`/position-workers/${editId}`, d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Puesto actualizado correctamente.");
+    },
     onError: (error: AxiosError<unknown>) => {
       setErrorMessage(getErrorMessage(error));
     },
@@ -189,7 +198,13 @@ export default function Puesto() {
 
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/position-workers/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["position-workers"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["position-workers"] });
+      show("Puesto eliminado correctamente.", "success", false);
+    },
+    onError: (error: AxiosError<unknown>) => {
+      show(getErrorMessage(error), "error");
+    }
   });
 
   const reset = () => {
@@ -262,30 +277,35 @@ export default function Puesto() {
       header: "Acciones",
       enableSorting: false,
       cell: ({ row }) => (
-        <>
-          <button style={s.btnIcon} onClick={() => edit(row.original)}>
-            ✏️
+        <div className="flex gap-2">
+          <button onClick={() => edit(row.original)} title="Editar"
+            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+            <Pencil size={13} color="#d97706" />
           </button>
-          <button
-            style={s.btnIcon}
-            onClick={() => remove.mutate(row.original.id)}
-          >
-            🗑️
+          <button onClick={() => remove.mutate(row.original.id)} title="Eliminar"
+            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+            <Trash2 size={13} color="#dc2626" />
           </button>
-        </>
+        </div>
       ),
     },
   ];
 
   return (
     <div className="max-w-7xl mx-auto">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div style={s.header}>
-        <div id="puesto-title">
-          <h1 style={s.title}>Puestos</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Defina y gestione los puestos de trabajo disponibles en la
-            organización.
-          </p>
+        <div id="puesto-title" className="flex items-center gap-3">
+          <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Briefcase size={22} color="#2D6A4F" />
+          </div>
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Puestos</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Defina y gestione los puestos de trabajo disponibles en la
+              organización.
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button id="puesto-ayuda-btn" style={s.btnHelp} onClick={startTour}>

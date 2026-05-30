@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { useTour } from "@/hooks/useTour";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useAuthStore } from "@/store/authStore";
+import { Pencil, Trash2, Users } from "lucide-react"; 
 import { validateEmpleado, hasErrors, type Errors } from "@/utils/validators";
 
 const ITEMS_PER_PAGE = 10;
@@ -72,10 +73,10 @@ export default function EmpleadoModule() {
 
   const { toasts, show, remove } = useToast();
 
-  // Tour con firma de develop
- const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
+  const { startTour } = useTour(TOUR_STEPS, "empleados", authEmpleado?.id);
   const tourKey = authEmpleado?.id != null ? `pad_tour_empleados_v1_${authEmpleado.id}` : null;
   const [tourDone, setTourDone] = useState(() => tourKey ? localStorage.getItem(tourKey) === "1" : false);
+  
   useEffect(() => {
     if (!tourKey || tourDone) return;
     const interval = setInterval(() => {
@@ -105,23 +106,32 @@ export default function EmpleadoModule() {
 
   const reset = () => { setForm(empty); setEditId(null); setOpen(false); setErrors({}); };
 
-  const invalidate = () => { qc.invalidateQueries({ queryKey: ["empleados"] }); reset(); show("Empleado guardado correctamente.", "success"); };
+  const invalidate = (msg: string) => { 
+    qc.invalidateQueries({ queryKey: ["empleados"] }); 
+    reset(); 
+    setPage(1);
+    show(msg, "success", false); 
+  };
 
   const create = useMutation({
     mutationFn: (d: EmpleadoForm) => api.post("/empleados", d),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate("Empleado creado correctamente."),
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
   const update = useMutation({
     mutationFn: (d: EmpleadoForm) => api.put(`/empleados/${editId}`, d),
-    onSuccess: invalidate,
+    onSuccess: () => invalidate("Empleado actualizado correctamente."),
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
   const remove2 = useMutation({
     mutationFn: (id: number) => api.delete(`/empleados/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["empleados"] }); show("Empleado eliminado.", "success"); },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ["empleados"] }); 
+      setPage(1);
+      show("Empleado eliminado correctamente.", "success", false); 
+    },
     onError: (err) => show(getErrorMessage(err), "error"),
   });
 
@@ -155,24 +165,28 @@ export default function EmpleadoModule() {
     <div className="max-w-7xl mx-auto">
       <ToastContainer toasts={toasts} onRemove={remove} />
 
-      {/* Header */}
+      {/* Header con el ícono incorporado en un contenedor flexible */}
       <div id="emp-header" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Empleados</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestione la fuerza laboral, asigne roles y supervise el estado operativo.</p>
+        <div className="flex items-start gap-4">
+          {/* Contenedor del ícono del módulo con fondo verde suave acorde al diseño de Órdenes de Trabajo */}
+          <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-100 flex items-center justify-center shrink-0 text-[#2D6A4F] mt-1">
+            <Users className="w-6 h-6" strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0">Empleados</h1>
+            <p className="text-sm text-gray-500 mt-1">Gestione la fuerza laboral, asigne roles y supervise el estado operativo.</p>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={startTour}
-            className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer"
-          >
+        <div className="flex gap-3 self-end sm:self-center">
+          <button onClick={startTour}
+            className="bg-white text-[#2D6A4F] text-sm font-semibold px-5 py-2.5 rounded-lg border border-[#2D6A4F] hover:bg-green-50 transition-colors whitespace-nowrap cursor-pointer">
             ¿Necesitas ayuda?
           </button>
           <button id="emp-nuevo-btn" onClick={() => { reset(); setOpen(true); }}
             className="bg-[#2D6A4F] text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-[#245a42] transition-colors whitespace-nowrap cursor-pointer border-0">
             + Nuevo Empleado
           </button>
-</div>
+        </div>
       </div>
 
       {/* Stats */}
@@ -216,7 +230,7 @@ export default function EmpleadoModule() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-gray-50">
-                    {["Código", "Empleado", "Puesto", "Email", "Estado", "Acciones"].map(h => (
+                    {["Código", "Empleado / Email", "Puesto", "Estado", "Acciones"].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">{h}</th>
                     ))}
                   </tr>
@@ -237,12 +251,23 @@ export default function EmpleadoModule() {
                         </div>
                       </td>
                       <td className="px-4 py-3">{getNombrePuesto(e.pstPuesto) ? <Badge label={getNombrePuesto(e.pstPuesto)!} color="green" /> : <span className="text-xs text-gray-400">Sin puesto</span>}</td>
-                      <td className="px-4 py-3 text-gray-500 text-sm">{e.email}</td>
                       <td className="px-4 py-3"><Badge label={e.estado} color={e.estado === "ACTIVO" ? "green" : "gray"} /></td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button onClick={() => edit(e)} className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Editar">✏️</button>
-                          <button onClick={() => remove2.mutate(e.id)} className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer text-sm transition-colors" title="Eliminar">🗑️</button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={() => edit(e)} 
+                            title="Editar"
+                            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md p-1.5 cursor-pointer transition-colors flex items-center justify-center text-amber-600">
+                            <Pencil className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => remove2.mutate(e.id)} 
+                            title="Eliminar"
+                            className="bg-red-50 hover:bg-red-100 border-0 rounded-md p-1.5 cursor-pointer transition-colors flex items-center justify-center text-red-600">
+                            <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -252,6 +277,7 @@ export default function EmpleadoModule() {
             </div>
           )}
 
+        {/* Paginación */}
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
             <p className="text-xs text-gray-400">
@@ -276,16 +302,15 @@ export default function EmpleadoModule() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal Formulario */}
       <Modal open={open} title={editId ? "Editar Empleado" : "Registro de Empleado"} subtitle="Complete la información para integrar al nuevo miembro del equipo." onClose={reset}>
         <form onSubmit={submit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
             {editId && (
-              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide sm:col-span-2">
                 Código de Empleado
                 <input value={data.find(e => e.id === editId)?.codigoEmpleado ?? ""} readOnly
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal" />
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-400 outline-none bg-gray-50 cursor-not-allowed font-normal normal-case tracking-normal w-full" />
               </label>
             )}
 
@@ -343,7 +368,7 @@ export default function EmpleadoModule() {
                 {tourDone && <TipIcon element="#f-puesto" title="Puesto" description="Cargo del empleado. Define sus permisos de acceso al sistema." />}
               </label>
               <select id="f-puesto" name="pstPuesto" value={form.pstPuesto ?? ""} onChange={change}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white">
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none bg-white w-full">
                 <option value="">Seleccione puesto...</option>
                 {puestos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
@@ -354,7 +379,7 @@ export default function EmpleadoModule() {
                 Estado Inicial
                 {tourDone && <TipIcon element="#f-estado-emp" title="Estado" description="ACTIVO: puede operar. INACTIVO: acceso suspendido pero historial conservado." />}
               </label>
-              <div id="f-estado-emp" className="flex gap-4 mt-1">
+              <div id="f-estado-emp" className="flex gap-4 mt-2">
                 {["ACTIVO", "INACTIVO"].map(est => (
                   <label key={est} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                     <input type="radio" name="estado" value={est} checked={form.estado === est} onChange={change} />
@@ -363,8 +388,8 @@ export default function EmpleadoModule() {
                 ))}
               </div>
             </div>
-
           </div>
+
           <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
             <button type="button" onClick={reset} className="bg-white text-gray-900 border border-gray-200 rounded-lg px-5 py-2.5 text-sm cursor-pointer hover:bg-gray-50 transition-colors">Cancelar</button>
             <button type="submit" disabled={create.isPending || update.isPending}

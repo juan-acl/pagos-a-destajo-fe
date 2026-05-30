@@ -8,6 +8,9 @@ import { fetchAreas } from "@/api/area.api";
 import { s } from "@/styles/area.styles";
 import Modal from "@/components/ui/Modal";
 import Stats from "@/components/commons/stats";
+import { Pencil, Trash2, Map } from "lucide-react";
+import ToastContainer from "@/components/ui/Toastcontainer";
+import { useToast } from "@/hooks/useToast";
 import {
   areaFormFields,
   areaStats,
@@ -76,6 +79,7 @@ function TipIcon({
 export default function Area() {
   const qc = useQueryClient();
   const { empleado } = useAuthStore();
+  const { show, toasts, remove: removeToast } = useToast();
   const [form, setForm] = useState<AreaForm>(empty);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -165,13 +169,17 @@ export default function Area() {
     }, []);
   }, [data]);
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["area"] });
-    reset();
+  const invalidate = (msg: string) => { 
+    qc.invalidateQueries({ queryKey: ["area"] }); 
+    reset(); 
+    show(msg, "success", false); 
   };
+
   const create = useMutation({
     mutationFn: (d: AreaForm) => api.post("/area", d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Área creada correctamente.");
+    },
     onError: (error: AxiosError<unknown>) => {
       setErrorMessage(getErrorMessage(error));
     },
@@ -179,14 +187,23 @@ export default function Area() {
 
   const update = useMutation({
     mutationFn: (d: AreaForm) => api.put(`/area/${editId}`, d),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate("Área actualizada correctamente.");
+    },
     onError: (error: AxiosError<unknown>) => {
       setErrorMessage(getErrorMessage(error));
     },
   });
+  
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/area/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["area"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["area"] });
+      show("Área Openizada correctamente.", "success", false);
+    },
+    onError: (error: AxiosError<unknown>) => {
+      show(getErrorMessage(error), "error");
+    }
   });
 
   const reset = () => {
@@ -257,29 +274,34 @@ export default function Area() {
       header: "Acciones",
       enableSorting: false,
       cell: ({ row }) => (
-        <>
-          <button style={s.btnIcon} onClick={() => edit(row.original)}>
-            ✏️
+        <div className="flex gap-2">
+          <button onClick={() => edit(row.original)} title="Editar"
+            className="bg-gray-100 hover:bg-amber-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+            <Pencil size={13} color="#d97706" />
           </button>
-          <button
-            style={s.btnIcon}
-            onClick={() => remove.mutate(row.original.id)}
-          >
-            🗑️
+          <button onClick={() => remove.mutate(row.original.id)} title="Eliminar"
+            className="bg-red-50 hover:bg-red-100 border-0 rounded-md px-2 py-1.5 cursor-pointer transition-colors flex items-center">
+            <Trash2 size={13} color="#dc2626" />
           </button>
-        </>
+        </div>
       ),
     },
   ];
 
   return (
     <div className="max-w-7xl mx-auto">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div style={s.header}>
-        <div id="area-title">
-          <h1 style={s.title}>Áreas</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Organice y gestione las áreas de producción y su estado operativo.
-          </p>
+        <div id="area-title" className="flex items-center gap-3">
+          <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Map size={22} color="#2D6A4F" />
+          </div>
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Áreas</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Organice y gestione las áreas de producción y su estado operativo.
+            </p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
           <button id="area-ayuda-btn" style={s.btnHelp} onClick={startTour}>

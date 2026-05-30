@@ -6,6 +6,7 @@ import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { Package } from "lucide-react";
 import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/store/authStore";
 import { PRODUCTION_LOT_TOUR_STEPS } from "./tour";
@@ -141,14 +142,19 @@ export default function ProductionLotPage() {
     onError: (error) => setMessage(getErrorMessage(error)),
   });
 
-  return (
+return (
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
-        <div id="production-lot-title">
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
-          </p>
+<div id="production-lot-title" className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50/50">
+            <Package className="w-5 h-5 text-slate-500" strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0 tracking-tight">Generación de Lote</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
+            </p>
+          </div>
         </div>
         <button
           id="production-lot-ayuda-btn"
@@ -196,7 +202,7 @@ export default function ProductionLotPage() {
               setSelectedCandidateId(e.target.value === "" ? "" : Number(e.target.value));
               setMessage(null);
             }}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
           >
             <option value="">Selecciona un panel</option>
             {candidates.map((item) => (

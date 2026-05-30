@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CalendarDays } from "lucide-react"; // Se agregó CalendarDays aquí
 import api from "@/api";
 import Modal from "@/components/ui/Modal";
 import { s } from "@/styles/planilla.styles";
@@ -355,12 +355,15 @@ export default function RegistroDiarioPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div style={s.header}>
-        <div id="registro-title">
-          <h1 style={s.title}>Gestión de Días</h1>
-          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
-            Registre y administre los días laborales de las órdenes con
-            modalidad Pago por Día.
-          </p>
+        <div id="registro-title" style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+          <CalendarDays size={28} style={{ color: "#2D6A4F", marginTop: "2px" }} />
+          <div>
+            <h1 style={{ ...s.title, margin: 0 }}>Gestión de Días</h1>
+            <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748b" }}>
+              Registre y administre los días laborales de las órdenes con
+              modalidad Pago por Día.
+            </p>
+          </div>
         </div>
         <button id="registro-ayuda-btn" style={s.btnHelp} onClick={startTour}>
           ¿Necesitas ayuda?

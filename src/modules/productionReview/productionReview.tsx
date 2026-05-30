@@ -6,6 +6,7 @@ import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { Search } from "lucide-react";
 import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/store/authStore";
 import { PRODUCTION_REVIEW_TOUR_STEPS } from "./tour";
@@ -207,11 +208,16 @@ export default function ProductionReviewPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
-        <div id="production-review-title">
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
-          </p>
+        <div id="production-review-title" className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50/50">
+            <Search className="w-5 h-5 text-slate-500" strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
+            </p>
+          </div>
         </div>
         <button
           id="production-review-ayuda-btn"
@@ -262,7 +268,7 @@ export default function ProductionReviewPage() {
               setObservaciones("");
               setMessage(null);
             }}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
           >
             <option value="">Selecciona un reporte</option>
             {pending.map((item) => (
@@ -330,7 +336,7 @@ export default function ProductionReviewPage() {
                   const sanitizedValue = sanitizeIntegerInput(e.target.value);
                   setCantidadAprobada(sanitizedValue === "" ? "" : Number(sanitizedValue));
                 }}
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
               />
               {cantidadAprobadaMayorARecibida && (
                 <p className="mt-1 text-xs font-medium text-red-600">
@@ -372,7 +378,7 @@ export default function ProductionReviewPage() {
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               rows={4}
-              className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
+              className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
               placeholder="Describe hallazgos o motivos de rechazo"
             />
           </label>
