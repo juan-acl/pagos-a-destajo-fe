@@ -138,7 +138,6 @@ export default function ProductionReviewPage() {
 
   const cantidadRecibida = Math.trunc(Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0));
 
-  // CORREGIDO: Eliminada la dependencia e instrucción rota que causaba el crash de la aplicación
   const porcentajeRechazo = useMemo(() => {
     if (!cantidadRecibida || cantidadRecibida <= 0) return 0;
     return Number((((cantidadRecibida - Number(cantidadAprobada || 0)) / cantidadRecibida) * 100).toFixed(2));
@@ -208,30 +207,24 @@ export default function ProductionReviewPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="production-review-title" className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-gray-50/50">
             <Search className="w-5 h-5 text-slate-500" strokeWidth={2} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 m-0 tracking-tight">
-            Revisión y Aprobación de Producción
-          </h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-1.5 pl-[52px]">
-          Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
-        </p>
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
-        <div id="production-review-title">
-          <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
+            </p>
+          </div>
         </div>
         <button
           id="production-review-ayuda-btn"
           type="button"
           onClick={startTour}
-          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]">
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
           ¿Necesitas ayuda?
         </button>
       </div>
@@ -316,10 +309,10 @@ export default function ProductionReviewPage() {
                 pattern="[0-9]*"
                 value={selectedReport ? cantidadRecibida : ""}
                 readOnly
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 focus:outline-none"
                 onKeyDown={preventNonIntegerKey}
                 onPaste={preventInvalidIntegerPaste}
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50"/>
+                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50"
+              />
             </label>
             <label className="block text-sm font-medium text-gray-700">
               <span className="inline-flex items-center gap-1">
@@ -337,15 +330,14 @@ export default function ProductionReviewPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={cantidadAprobada}
-                onChange={(e) => setCantidadAprobada(e.target.value === "" ? "" : Number(e.target.value))}
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
                 onKeyDown={preventNonIntegerKey}
                 onPaste={preventInvalidIntegerPaste}
                 onChange={(e) => {
                   const sanitizedValue = sanitizeIntegerInput(e.target.value);
                   setCantidadAprobada(sanitizedValue === "" ? "" : Number(sanitizedValue));
                 }}
-                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"/>
+                className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-600"
+              />
               {cantidadAprobadaMayorARecibida && (
                 <p className="mt-1 text-xs font-medium text-red-600">
                   La cantidad aprobada no puede ser mayor a la cantidad recibida/reportada.
