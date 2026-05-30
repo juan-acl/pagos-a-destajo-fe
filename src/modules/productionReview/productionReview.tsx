@@ -1,10 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { PRODUCTION_REVIEW_TOUR_STEPS } from "./tour";
 
 type PendingReport = {
   id: number;
@@ -70,13 +74,46 @@ const badgeColor = (estado: string) => {
   return "gray";
 };
 
+const INTEGER_CONTROL_KEYS = new Set([
+  "Backspace",
+  "Delete",
+  "Tab",
+  "Escape",
+  "Enter",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+]);
+
+const sanitizeIntegerInput = (value: string) => value.replace(/\D/g, "");
+
+const preventNonIntegerKey = (event: KeyboardEvent<HTMLInputElement>) => {
+  if (event.ctrlKey || event.metaKey || event.altKey || INTEGER_CONTROL_KEYS.has(event.key)) return;
+  if (!/^\d$/.test(event.key)) event.preventDefault();
+};
+
+const preventInvalidIntegerPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+  const pastedText = event.clipboardData.getData("text");
+  if (!/^\d+$/.test(pastedText)) event.preventDefault();
+};
+
 export default function ProductionReviewPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [selectedId, setSelectedId] = useState<number | "">("");
   const [cantidadAprobada, setCantidadAprobada] = useState<number | "">("");
   const [observaciones, setObservaciones] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [reviewsPage, setReviewsPage] = useState(1);
+
+  const { startTour } = useTour(
+    PRODUCTION_REVIEW_TOUR_STEPS,
+    "production-review",
+    empleado?.id,
+  );
 
   const { data: pending = [], isLoading: loadingPending } = useQuery({
     queryKey: ["production-review-pending"],
@@ -98,7 +135,7 @@ export default function ProductionReviewPage() {
     [reviews, reviewsPage],
   );
 
-  const cantidadRecibida = Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0);
+  const cantidadRecibida = Math.trunc(Number(selectedReport?.cantidadReportada ?? selectedReport?.cantidadRecibida ?? 0));
 
   const porcentajeRechazo = useMemo(() => {
     if (!cantidadRecibida || cantidadRecibida <= 0) return 0;
@@ -107,6 +144,9 @@ export default function ProductionReviewPage() {
 
   const estadoResultante = porcentajeRechazo <= 20 ? "APROBADA" : "OBSERVADA";
   const observacionObligatoria = estadoResultante === "OBSERVADA";
+  const cantidadAprobadaMayorARecibida = Boolean(
+    selectedReport && cantidadAprobada !== "" && Number(cantidadAprobada) > cantidadRecibida,
+  );
 
   const reset = () => {
     setSelectedId("");
@@ -152,7 +192,7 @@ export default function ProductionReviewPage() {
       setMessage("Debes ingresar una cantidad aprobada válida.");
       return;
     }
-    if (Number(cantidadAprobada) > cantidadRecibida) {
+    if (cantidadAprobadaMayorARecibida) {
       setMessage("La cantidad aprobada no puede ser mayor a la reportada/recibida.");
       return;
     }
@@ -166,16 +206,26 @@ export default function ProductionReviewPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="production-review-title">
+          <h1 className="text-2xl font-bold text-gray-900 m-0">Revisión y Aprobación de Producción</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Revisa reportes reales del operario. Este flujo aplica únicamente a órdenes por DESTAJO.
+          </p>
+        </div>
+        <button
+          id="production-review-ayuda-btn"
+          type="button"
+          onClick={startTour}
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       <Toast message={message} type="error" onClose={() => setMessage(null)} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div id="production-review-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Reportes pendientes", value: pending.length, color: "text-amber-600" },
           { label: "Revisadas", value: reviews.filter((item) => normalize(item.estadoRevision) !== "PENDIENTE_REVISION").length, color: "text-blue-600" },
@@ -190,8 +240,19 @@ export default function ProductionReviewPage() {
       </div>
 
       <div className="grid lg:grid-cols-[380px,1fr] gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Reporte pendiente</label>
+        <div id="production-review-selector" className="bg-white rounded-xl border border-gray-200 p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <span className="inline-flex items-center gap-1">
+              Reporte pendiente
+              <DriveTooltip
+                id="pr-tooltip-reporte-pendiente"
+                title="Reporte pendiente"
+                description="Selecciona el reporte enviado por el operario que todavía está pendiente de revisión. Este flujo solo aplica para órdenes por destajo."
+                side="right"
+                align="start"
+              />
+            </span>
+          </label>
           <select
             value={selectedId}
             onChange={(e) => {
@@ -223,37 +284,90 @@ export default function ProductionReviewPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div id="production-review-form" className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="grid md:grid-cols-2 gap-4">
             <label className="block text-sm font-medium text-gray-700">
-              Cantidad recibida/reportada
+              <span className="inline-flex items-center gap-1">
+                Cantidad recibida/reportada
+                <DriveTooltip
+                  id="pr-tooltip-cantidad-recibida"
+                  title="Cantidad recibida/reportada"
+                  description="Este valor viene del reporte del operario y se usa como base para calcular el porcentaje de rechazo. No se edita manualmente."
+                  side="top"
+                  align="start"
+                />
+              </span>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={selectedReport ? cantidadRecibida : ""}
                 readOnly
+                onKeyDown={preventNonIntegerKey}
+                onPaste={preventInvalidIntegerPaste}
                 className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50"
               />
             </label>
             <label className="block text-sm font-medium text-gray-700">
-              Cantidad aprobada
+              <span className="inline-flex items-center gap-1">
+                Cantidad aprobada
+                <DriveTooltip
+                  id="pr-tooltip-cantidad-aprobada"
+                  title="Cantidad aprobada"
+                  description="Ingresa únicamente enteros. Esta cantidad no puede ser mayor a la cantidad recibida/reportada."
+                  side="top"
+                  align="start"
+                />
+              </span>
               <input
-                type="number"
-                min={0}
-                max={cantidadRecibida || undefined}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={cantidadAprobada}
-                onChange={(e) => setCantidadAprobada(e.target.value === "" ? "" : Number(e.target.value))}
+                onKeyDown={preventNonIntegerKey}
+                onPaste={preventInvalidIntegerPaste}
+                onChange={(e) => {
+                  const sanitizedValue = sanitizeIntegerInput(e.target.value);
+                  setCantidadAprobada(sanitizedValue === "" ? "" : Number(sanitizedValue));
+                }}
                 className="mt-2 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900"
               />
+              {cantidadAprobadaMayorARecibida && (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  La cantidad aprobada no puede ser mayor a la cantidad recibida/reportada.
+                </p>
+              )}
             </label>
           </div>
 
-          <div className="mt-4 rounded-lg border border-gray-100 p-4 bg-gray-50 text-sm text-gray-700 space-y-1">
-            <p>Porcentaje de rechazo: <strong className={porcentajeRechazo <= 20 ? "text-[#2D6A4F]" : "text-red-600"}>{porcentajeRechazo}%</strong></p>
-            <p>Estado resultante: <strong className={estadoResultante === "APROBADA" ? "text-[#2D6A4F]" : "text-red-600"}>{estadoResultante}</strong></p>
-          </div>
+          {!cantidadAprobadaMayorARecibida && (
+            <div className="mt-4 rounded-lg border border-gray-100 p-4 bg-gray-50 text-sm text-gray-700 space-y-1">
+              <p className="inline-flex items-center gap-1">
+                Porcentaje de rechazo:
+                <strong className={porcentajeRechazo <= 20 ? "text-[#2D6A4F]" : "text-red-600"}>{porcentajeRechazo}%</strong>
+                <DriveTooltip
+                  id="pr-tooltip-porcentaje-rechazo"
+                  title="Porcentaje de rechazo"
+                  description="El sistema calcula el rechazo comparando la cantidad recibida contra la cantidad aprobada. Si supera el 20%, la revisión queda observada."
+                  side="right"
+                  align="start"
+                />
+              </p>
+              <p>Estado resultante: <strong className={estadoResultante === "APROBADA" ? "text-[#2D6A4F]" : "text-red-600"}>{estadoResultante}</strong></p>
+            </div>
+          )}
 
           <label className="block text-sm font-medium text-gray-700 mt-4">
-            Observaciones {observacionObligatoria ? "*" : ""}
+            <span className="inline-flex items-center gap-1">
+              Observaciones {observacionObligatoria ? "*" : ""}
+              <DriveTooltip
+                id="pr-tooltip-observaciones"
+                title="Observaciones"
+                description="Registra hallazgos o motivos de rechazo. Cuando el porcentaje de rechazo supera el 20%, este campo es obligatorio."
+                side="top"
+                align="start"
+              />
+            </span>
             <textarea
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
@@ -283,9 +397,18 @@ export default function ProductionReviewPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="production-review-history" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Historial de reportes y revisiones</h2>
+          <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+            Historial de reportes y revisiones
+            <DriveTooltip
+              id="pr-tooltip-historial"
+              title="Historial de revisiones"
+              description="Muestra las revisiones ya registradas, su cantidad recibida, aprobada, porcentaje de rechazo, estado y fecha."
+              side="bottom"
+              align="start"
+            />
+          </h2>
           <p className="text-sm text-gray-500">Los reportes pendientes nacen desde el panel del operario y aquí se aprueban u observan.</p>
         </div>
 

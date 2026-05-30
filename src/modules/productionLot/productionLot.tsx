@@ -4,7 +4,11 @@ import api from "@/api";
 import Badge from "@/components/ui/badge";
 import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import DriveTooltip from "@/components/ui/DriveTooltip";
 import { getErrorMessage, type ApiEnvelope } from "@/utils/api";
+import { useTour } from "@/hooks/useTour";
+import { useAuthStore } from "@/store/authStore";
+import { PRODUCTION_LOT_TOUR_STEPS } from "./tour";
 
 type LotCandidate = {
   id: number;
@@ -79,10 +83,17 @@ const paginate = <T,>(items: T[], page: number) => {
 
 export default function ProductionLotPage() {
   const qc = useQueryClient();
+  const { empleado } = useAuthStore();
   const [selectedCandidateId, setSelectedCandidateId] = useState<number | "">("");
   const [message, setMessage] = useState<string | null>(null);
   const [candidatesPage, setCandidatesPage] = useState(1);
   const [lotsPage, setLotsPage] = useState(1);
+
+  const { startTour } = useTour(
+    PRODUCTION_LOT_TOUR_STEPS,
+    "production-lot",
+    empleado?.id,
+  );
 
   const { data: candidates = [], isLoading: loadingCandidates } = useQuery({
     queryKey: ["production-lot-candidates"],
@@ -132,16 +143,26 @@ export default function ProductionLotPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-7">
+        <div id="production-lot-title">
+          <h1 className="text-2xl font-bold text-gray-900 m-0">Generación de Lote</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Aplica únicamente para órdenes con modalidad <strong>DESTAJO</strong>. Las órdenes de pago por día se liquidan desde Gestión de Días y Planilla.
+          </p>
+        </div>
+        <button
+          id="production-lot-ayuda-btn"
+          type="button"
+          onClick={startTour}
+          className="bg-white text-[#2D6A4F] border border-[#2D6A4F] text-sm font-semibold px-4 py-2 rounded-lg cursor-pointer hover:bg-[#f0fdf4]"
+        >
+          ¿Necesitas ayuda?
+        </button>
       </div>
 
       <Toast message={message} type="error" onClose={() => setMessage(null)} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div id="production-lot-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Paneles evaluados", value: candidates.length, color: "text-gray-900" },
           { label: "Listos para lote", value: candidates.filter((item) => item.canGenerate).length, color: "text-[#2D6A4F]" },
@@ -156,8 +177,19 @@ export default function ProductionLotPage() {
       </div>
 
       <div className="grid lg:grid-cols-[380px,1fr] gap-6 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Orden y cuadrilla</label>
+        <div id="production-lot-selector" className="bg-white rounded-xl border border-gray-200 p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <span className="inline-flex items-center gap-1">
+              Orden y cuadrilla
+              <DriveTooltip
+                id="pl-tooltip-orden-cuadrilla"
+                title="Orden y cuadrilla"
+                description="Selecciona el panel que deseas evaluar. El lote solo puede generarse para órdenes con modalidad Destajo y producción aprobada."
+                side="right"
+                align="start"
+              />
+            </span>
+          </label>
           <select
             value={selectedCandidateId}
             onChange={(e) => {
@@ -186,7 +218,16 @@ export default function ProductionLotPage() {
               </div>
 
               <div className="rounded-lg border border-gray-100 p-4">
-                <p className="font-semibold text-gray-900 mb-2">Precondiciones</p>
+                <p className="font-semibold text-gray-900 mb-2 inline-flex items-center gap-1">
+                  Precondiciones
+                  <DriveTooltip
+                    id="pl-tooltip-precondiciones"
+                    title="Precondiciones"
+                    description="Antes de generar un lote, el sistema valida modalidad Destajo, revisiones aprobadas y ausencia de reportes pendientes o bloqueos."
+                    side="right"
+                    align="start"
+                  />
+                </p>
                 {selectedCandidate.blockers.length === 0 ? (
                   <p className="text-[#2D6A4F]">Todo listo para generar el lote.</p>
                 ) : (
@@ -198,7 +239,16 @@ export default function ProductionLotPage() {
 
               {(selectedCandidate.pendingReports?.length ?? selectedCandidate.pendingAssignments.length) > 0 && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <p className="font-semibold text-amber-800 mb-2">Reportes pendientes de revisión</p>
+                  <p className="font-semibold text-amber-800 mb-2 inline-flex items-center gap-1">
+                    Reportes pendientes de revisión
+                    <DriveTooltip
+                      id="pl-tooltip-reportes-pendientes"
+                      title="Reportes pendientes"
+                      description="Si existen reportes pendientes, primero deben revisarse en el módulo de Revisión antes de permitir generar el lote."
+                      side="right"
+                      align="start"
+                    />
+                  </p>
                   <ul className="list-disc pl-5 space-y-1 text-amber-700">
                     {(selectedCandidate.pendingReports ?? selectedCandidate.pendingAssignments).slice(0, DISPLAY_LIMIT).map((item: any) => (
                       <li key={item.id}>#{item.id} · {item.assignment?.empleadoNombre ?? item.empleadoNombre ?? "Empleado"}</li>
@@ -209,7 +259,16 @@ export default function ProductionLotPage() {
 
               {selectedCandidate.observedReviews.length > 0 && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <p className="font-semibold text-gray-800 mb-2">Revisiones observadas</p>
+                  <p className="font-semibold text-gray-800 mb-2 inline-flex items-center gap-1">
+                    Revisiones observadas
+                    <DriveTooltip
+                      id="pl-tooltip-revisiones-observadas"
+                      title="Revisiones observadas"
+                      description="Las revisiones observadas indican que hubo rechazo o hallazgos. Deben revisarse antes de consolidar producción en un lote."
+                      side="right"
+                      align="start"
+                    />
+                  </p>
                   <ul className="list-disc pl-5 space-y-1 text-gray-700">
                     {selectedCandidate.observedReviews.slice(0, DISPLAY_LIMIT).map((item) => (
                       <li key={item.id}>Revisión #{item.id}{item.assignment?.empleadoNombre ? ` · ${item.assignment.empleadoNombre}` : ""}</li>
@@ -230,9 +289,18 @@ export default function ProductionLotPage() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div id="production-lot-candidates-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">Estado de cada panel</h2>
+            <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+              Estado de cada panel
+              <DriveTooltip
+                id="pl-tooltip-estado-panel"
+                title="Estado de cada panel"
+                description="Muestra qué paneles están listos para generar lote y cuáles están bloqueados, junto con el primer motivo de bloqueo detectado."
+                side="bottom"
+                align="start"
+              />
+            </h2>
             <p className="text-sm text-gray-500">Solo los paneles DESTAJO con producción aprobada y sin reportes pendientes pueden generar lote.</p>
           </div>
 
@@ -276,9 +344,18 @@ export default function ProductionLotPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div id="production-lot-lots-table" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Lotes generados</h2>
+          <h2 className="text-lg font-semibold text-gray-900 inline-flex items-center gap-1">
+            Lotes generados
+            <DriveTooltip
+              id="pl-tooltip-lotes-generados"
+              title="Lotes generados"
+              description="Historial de lotes creados desde producción aprobada. Estos lotes serán la base para planillas por modalidad Destajo."
+              side="bottom"
+              align="start"
+            />
+          </h2>
           <p className="text-sm text-gray-500">Historial de lotes creados desde revisiones aprobadas.</p>
         </div>
 
